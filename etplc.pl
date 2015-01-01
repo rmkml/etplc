@@ -17,6 +17,7 @@
 # Contact: rmkml@yahoo.fr
 
 # changelog:
+# 28dec2014: add remote_ip bluecoat main format logs v6.5.5
 # 27dec2014: fix bluecoat main format logs v6.5.5, thx Damien
 # 17dec2014: fix apache logs
 #  5dec2014: fix apache logs, thx Eric!
@@ -3640,8 +3641,8 @@ my @threads = map threads->create(sub {
 #2014-12-27 19:36:58 27 10.0.0.1 200 TCP_NC_MISS 411 731 GET http www.google.fr 80 /6407654/ ?label=All - - www.google.fr image/gif http://www.test.fr/ "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20130416 Firefox/20.0" OBSERVED "Search Engines/Portals" - 172.16.0.1
 #2014-12-27 19:36:59 1 10.0.0.1 0 DENIED 0 0 unknown ssl webanalytics.btelligent.net 443 / - - - webanalytics.btelligent.net - - - DENIED "Placeholders" - 172.16.0.1
 
- elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\d+)\s\S+\s\d+\s\d+\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\S+)\s(\S+)\s\S+\s\S+\s\S+\s(\S+)\s(?:\\\"([^\"]*?)\\\"|(\-))\s\S+\s(?:\\\"(?:[^\"]*?)\\\"|(?:\-))\s(?:\\\"(?:[^\"]*?)\\\"|(?:\-))\s(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\\r)?$/ ) {
-  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri="$7:\/\/$8$10$11"; $client_username=$12; $client_http_referer=$13; $client_http_useragent=$14;
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\d+)\s\S+\s\d+\s\d+\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\S+)\s(\S+)\s\S+\s\S+\s\S+\s(\S+)\s(?:\\\"([^\"]*?)\\\"|(\-))\s\S+\s(?:\\\"(?:[^\"]*?)\\\"|(?:\-))\s(?:\\\"(?:[^\"]*?)\\\"|(?:\-))\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\\r)?$/ ) {
+  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri="$7:\/\/$8$10$11"; $client_username=$12; $client_http_referer=$13; $client_http_useragent=$14; $server_remote_ip=$16;
   if( $7 eq "tcp" ) { $client_http_uri=$8 }
   if( $11 eq "-" && $7 ne "tcp" ) { $client_http_uri="$7:\/\/$8$10" }
   elsif( $11 eq "-" && $7 eq "tcp" ) { $client_http_uri="$8$10" }
