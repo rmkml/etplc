@@ -17,6 +17,7 @@
 # Contact: rmkml@yahoo.fr
 
 # changelog:
+# 27dec2014: fix bluecoat main format logs v6.5.5, thx Damien
 # 17dec2014: fix apache logs
 #  5dec2014: fix apache logs, thx Eric!
 # 16nov2014: add initial Remote IP option
@@ -3523,7 +3524,11 @@ my @threads = map threads->create(sub {
 
  chomp $_;
  $output_escape = printable($_);
- #print "rawproxy: $output_escape\n" if $debug2;
+ print "rawproxy: $output_escape\n" if $debug2;
+
+ if ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(?:\#Software\: |\#Version\: |\#Start-Date\: |\#Date\: |\#Fields\: |\#Remark\: )/ ) {
+  print "bypass BlueCoat header.\n" if $debug2;
+ }
 
 # Squid default conf:
 #2012-11-10T16:33:21.030867+01:00 hostname programname: 1352538457.034     79 192.168.2.3 TCP_MISS/200 2141 POST http://safe.google.com/downloads? - DIRECT/173.194.34.1 application/vnd.google.safe-update
@@ -3536,7 +3541,7 @@ my @threads = map threads->create(sub {
 # without syslog header:
 #1406207792.966 120930 192.168.8.3 TCP_MISS/200 111285 CONNECT https://i1.ytimg.com:443 - DEFAULT_PARENT/127.0.0.1 -
  #if ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)\s(\S+)\s\S+\:\s(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z]+\/(\S+)\s/ ) {
- if ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z\_]+\/(\S+)\s/ ) {
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z\_]+\/(\S+)\s/ ) {
   $timestamp_central=$1; $server_hostname_ip=$2; $timestamp_unix=$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri=$7; $web_hostname_ip=$8;
   $client_username="";
   unless( $1 ) { $timestamp_central="N/A" }
@@ -3609,7 +3614,7 @@ my @threads = map threads->create(sub {
   unless( $13 ) { $client_http_useragent=$14 }
   if( $12 eq "-" && $8 ne "tcp" ) { $client_http_uri="$8:\/\/$9$11" }
   elsif( $12 eq "-" && $8 eq "tcp" ) { $client_http_uri="$9$11" }
-  print "passage dans BlueCoat sans http_method regexp.\n" if $debug2;
+  print "passage dans BlueCoat 1 sans http_method regexp.\n" if $debug2;
  }
 
 # log proxy BlueCoat avec http_method:
@@ -3625,8 +3630,24 @@ my @threads = map threads->create(sub {
   unless( $13 ) { $client_http_useragent=$14 }
   if( $13 eq "-" && $9 ne "tcp" ) { $client_http_uri="$9:\/\/$10$12" }
   elsif( $13 eq "-" && $9 eq "tcp" ) { $client_http_uri="$10$12" }
-  print "passage dans BlueCoat avec http_method regexp.\n" if $debug2;
+  print "passage dans BlueCoat 2 avec http_method regexp.\n" if $debug2;
  }
+
+# Format MAIN SGOS v6.5.5.5
+#Fields: date time time-taken c-ip sc-status s-action sc-bytes cs-bytes cs-method cs-uri-scheme cs-host cs-uri-port cs-uri-path cs-uri-query cs-username cs-auth-group s-supplier-name rs(Content-Type) cs(Referer) cs(User-Agent) sc-filter-result cs-categories x-virus-id s-ip
+#2014-12-27 19:32:40 306 10.0.0.1 200 TCP_ACCELERATED 39 213 CONNECT tcp snippets.mozilla.com 443 / - - - 172.16.0.1 - - "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20130416 Firefox/20.0" OBSERVED "Technology/Internet" - 172.16.0.1
+#2014-12-27 19:32:40 70 10.0.0.1 200 TCP_NC_MISS 1665 512 POST http gtssl-ocsp.geotrust.com 80 / - - - gtssl-ocsp.geotrust.com application/ocsp-response - "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20130416 Firefox/20.0" OBSERVED "Technology/Internet" - 172.16.0.1
+#2014-12-27 19:36:58 27 10.0.0.1 200 TCP_NC_MISS 411 731 GET http www.google.fr 80 /6407654/ ?label=All - - www.google.fr image/gif http://www.test.fr/ "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20130416 Firefox/20.0" OBSERVED "Search Engines/Portals" - 172.16.0.1
+#2014-12-27 19:36:59 1 10.0.0.1 0 DENIED 0 0 unknown ssl webanalytics.btelligent.net 443 / - - - webanalytics.btelligent.net - - - DENIED "Placeholders" - 172.16.0.1
+
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\d+)\s\S+\s\d+\s\d+\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\S+)\s(\S+)\s\S+\s\S+\s\S+\s(\S+)\s(?:\\\"([^\"]*?)\\\"|(\-))\s\S+\s(?:\\\"(?:[^\"]*?)\\\"|(?:\-))\s(?:\\\"(?:[^\"]*?)\\\"|(?:\-))\s(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\\r)?$/ ) {
+  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri="$7:\/\/$8$10$11"; $client_username=$12; $client_http_referer=$13; $client_http_useragent=$14;
+  if( $7 eq "tcp" ) { $client_http_uri=$8 }
+  if( $11 eq "-" && $7 ne "tcp" ) { $client_http_uri="$7:\/\/$8$10" }
+  elsif( $11 eq "-" && $7 eq "tcp" ) { $client_http_uri="$8$10" }
+  print "passage dans BlueCoat 3 avec http_method regexp.\n" if $debug2;
+ }
+
 
 # log proxy McAfee WebGateway default v7.2.x (missing Referer and Cookie)
 # [1/Mar/2014:17:34:07 +0200] \"\" \"\" 10.1.1.1 200 \"POST http://google.com/test?test HTTP/1.1\" \"Category\" \"0 (Minimal Risk)\" \"text/xml\" 818 \"Java/1.6.0_55\" \"McAfeeGW: Optionnal Antivirus\" Cache=\"TCP_MISS_RELOAD\" nexthopname.com
