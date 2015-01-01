@@ -18,6 +18,7 @@
 # Contact: rmkml@yahoo.fr
 
 # ChangeLog:
+# 27dec2014: fix bluecoat main format logs v6.5.5, thx Damien
 # 17dec2014: fix apache logs + httpreferer4
 #  5dec2014: fix apache logs, thx Eric! + fixed category
 # 16nov2014: add initial Remote IP option
@@ -120,8 +121,9 @@ squiddefault1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-
 squidua1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\"([^\"]+)\" \"([^\"]+)\" \"([^\"]+)\"(?:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?')
 apache1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+\-\s+\[(.*?)\]\s+\"([^\s]+)\s([^\s]+)\s.*\"\s(\d+)\s(?:\d+|\-)(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?$')
 tmg1 = re.compile( r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)')
-bluecoat1 = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\"[^\"]*?\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?')
-bluecoatmethod1 = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\"[^\"]*?\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?')
+bluecoat1c = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\"[^\"]*?\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?')
+bluecoatmethod2c = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\"[^\"]*?\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?')
+bluecoatmethod3c = re.compile( r'(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\d+)\s\S+\s\d+\s\d+\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\S+)\s(\S+)\s\S+\s\S+\s\S+\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\S+\s(?:\"(?:[^\"]*?)\"|(?:\-))\s(?:\"(?:[^\"]*?)\"|(?:\-))\s(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
 mcafeewg1 = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?\s*\[([^\]]*?)\] \"([^\"]*?)\" \"[^\"]*?\" (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (0|\d{3}) \"([^\s]+)\s([^\s]+)\s[^\"]*?\" \"[^\"]*?\" \"[^\"]*?\" \"[^\"]*?\" \d+ \"([^\"]*)\" \"[^\"]*?\" \S+ (?:\S+)?$')
 
 ####################################################################################################
@@ -3170,9 +3172,13 @@ def function_logsandsearch( looplogs):
  squidua2 = squidua1.search( output_escape )
  apache2 = apache1.search( output_escape )
  tmg2 = tmg1.search( output_escape )
- bluecoat2 = bluecoat1.search( output_escape )
- bluecoatmethod2 = bluecoatmethod1.search( output_escape )
+ bluecoat1a = bluecoat1c.search( output_escape )
+ bluecoatmethod2a = bluecoatmethod2c.search( output_escape )
+ bluecoatmethod3a = bluecoatmethod3c.search( output_escape )
  mcafeewg2 = mcafeewg1.search( output_escape )
+
+ if re.search( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(?:\#Software\: |\#Version\: |\#Start-Date\: |\#Date\: |\#Fields\: |\#Remark\: )', output_escape):
+  if debug2: print "bypass BlueCoat header."
 
 # Squid default conf:
 #2012-11-10T16:33:21.030867+01:00 hostname programname: 1352538457.034     79 192.168.2.3 TCP_MISS/200 2141 POST http://safe.google.com/downloads? - DIRECT/173.194.34.1 application/vnd.google.safe-update
@@ -3184,7 +3190,7 @@ def function_logsandsearch( looplogs):
 #2012-11-10T16:33:21.035160+01:00 hostname programname: 1352538487.626    335 192.168.2.3 TCP_REFRESH_UNMODIFIED/200 80691 GET http://www.somantic.com/js/2010-07-01/adpan/google? - DIRECT/78.46.128.236 application/javascript
 # without syslog header:
 #1406207792.966 120930 192.168.8.3 TCP_MISS/200 111285 CONNECT https://i1.ytimg.com:443 - DEFAULT_PARENT/127.0.0.1 -
- if squiddefault2:
+ elif squiddefault2:
   timestamp_central=squiddefault2.group(1); server_hostname_ip=squiddefault2.group(2); timestamp_unix=squiddefault2.group(3); client_hostname_ip=squiddefault2.group(4); http_reply_code=squiddefault2.group(5); client_http_method=squiddefault2.group(6); client_http_uri=squiddefault2.group(7); web_hostname_ip=squiddefault2.group(8);
   if not squiddefault2.group(1): timestamp_central="N/A"
   if not squiddefault2.group(2): server_hostname_ip="N/A"
@@ -3253,17 +3259,17 @@ def function_logsandsearch( looplogs):
  # if( $12 eq "-" && $8 ne "tcp" ) { $client_http_uri="$8:\/\/$9$11" }
  # elsif( $12 eq "-" && $8 eq "tcp" ) { $client_http_uri="$9$11" }
  # print "passage dans BlueCoat sans http_method regexp.\n" if $debug2;
- elif bluecoat2:
-  server_hostname_ip=bluecoat2.group(1); timestamp_central=bluecoat2.group(2)+" "+bluecoat2.group(3); client_hostname_ip=bluecoat2.group(4); client_username=bluecoat2.group(5); http_reply_code=bluecoat2.group(6); client_http_referer=bluecoat2.group(7); client_http_uri=bluecoat2.group(8)+":\/\/"+bluecoat2.group(9)+bluecoat2.group(11)+bluecoat2.group(12); client_http_useragent=bluecoat2.group(13);
-  if bluecoat2.group(8) == "tcp" and bluecoat2.group(12) != "-":
-   client_http_uri=bluecoat2.group(9)
-  if not bluecoat2.group(13):
-   client_http_useragent=bluecoat2.group(14)
-  if bluecoat2.group(12) == "-" and bluecoat2.group(8) != "tcp":
-   client_http_uri=bluecoat2.group(8)+":\/\/"+bluecoat2.group(9)+bluecoat2.group(11)
-  elif bluecoat2.group(12) == "-" and bluecoat2.group(8) == "tcp":
-   client_http_uri=bluecoat2.group(9)+bluecoat2.group(11)
-  if debug2: print "passage dans BlueCoat sans http_method regexp."
+ elif bluecoat1a:
+  server_hostname_ip=bluecoat1a.group(1); timestamp_central=bluecoat1a.group(2)+" "+bluecoat1a.group(3); client_hostname_ip=bluecoat1a.group(4); client_username=bluecoat1a.group(5); http_reply_code=bluecoat1a.group(6); client_http_referer=bluecoat1a.group(7); client_http_uri=bluecoat1a.group(8)+":\/\/"+bluecoat1a.group(9)+bluecoat1a.group(11)+bluecoat1a.group(12); client_http_useragent=bluecoat1a.group(13);
+  if bluecoat1a.group(8) == "tcp" and bluecoat1a.group(12) != "-":
+   client_http_uri=bluecoat1a.group(9)
+  if not bluecoat1a.group(13):
+   client_http_useragent=bluecoat1a.group(14)
+  if bluecoat1a.group(12) == "-" and bluecoat1a.group(8) != "tcp":
+   client_http_uri=bluecoat1a.group(8)+":\/\/"+bluecoat1a.group(9)+bluecoat1a.group(11)
+  elif bluecoat1a.group(12) == "-" and bluecoat1a.group(8) == "tcp":
+   client_http_uri=bluecoat1a.group(9)+bluecoat1a.group(11)
+  if debug2: print "passage dans BlueCoat 1 sans http_method regexp."
 
 
 # log proxy BlueCoat avec http_method:
@@ -3272,17 +3278,34 @@ def function_logsandsearch( looplogs):
 # Oct 10 11:10:21 10.0.0.1/10.0.0.1 2013-10-10 11:10:22 135 10.0.0.2 user group \"none\" CATEGORY 200 http://referer.com TCP_CLIENT_REFRESH application/javascript GET http www.test.com 80 /path.js - \"Mozilla/4.0\" 10.0.0.3 22159 568 -
 # Oct 10 11:10:21 10.0.0.1/10.0.0.1 2013-10-10 11:10:23 15 10.0.0.2 user group \"none\" CATEGORY 204 - TCP_NC_MISS text/html GET http www.test.com 80 /path ?arg=1 \"Mozilla/4.0\" 10.0.0.3 321 491 -
 # Oct 10 11:10:21 10.0.0.1/10.0.0.1 2013-10-10 11:10:24 1 10.0.0.2 - - \"none\" CATEGORY 407 - TCP_DENIED - CONNECT tcp www.test.com 443 / - \"Mozilla/4.0\" 10.0.0.3 330 308 -
- elif bluecoatmethod2:
-  server_hostname_ip=bluecoatmethod2.group(1); timestamp_central=bluecoatmethod2.group(2)+" "+bluecoatmethod2.group(3); client_hostname_ip=bluecoatmethod2.group(4); client_username=bluecoatmethod2.group(5); http_reply_code=bluecoatmethod2.group(6); client_http_referer=bluecoatmethod2.group(7); client_http_method=bluecoatmethod2.group(8); client_http_uri=bluecoatmethod2.group(9)+":\/\/"+bluecoatmethod2.group(10)+bluecoatmethod2.group(12)+bluecoatmethod2.group(13); client_http_useragent=bluecoatmethod2.group(14);
-  if bluecoatmethod2.group(9) == "tcp" and bluecoatmethod2.group(13) != "-":
-   client_http_uri=bluecoatmethod2.group(10)
-  if not bluecoatmethod2.group(13):
-   client_http_useragent=bluecoatmethod2.group(14)
-  if bluecoatmethod2.group(13) == "-" and bluecoatmethod2.group(9) != "tcp":
-   client_http_uri=bluecoatmethod2.group(9)+":\/\/"+bluecoatmethod2.group(10)+bluecoatmethod2.group(12)
-  elif bluecoatmethod2.group(13) == "-" and bluecoatmethod2.group(9) == "tcp":
-   client_http_uri=bluecoatmethod2.group(10)+bluecoatmethod2.group(12)
-  if debug2: print "passage dans BlueCoat avec http_method regexp."
+ elif bluecoatmethod2a:
+  server_hostname_ip=bluecoatmethod2a.group(1); timestamp_central=bluecoatmethod2a.group(2)+" "+bluecoatmethod2a.group(3); client_hostname_ip=bluecoatmethod2a.group(4); client_username=bluecoatmethod2a.group(5); http_reply_code=bluecoatmethod2a.group(6); client_http_referer=bluecoatmethod2a.group(7); client_http_method=bluecoatmethod2a.group(8); client_http_uri=bluecoatmethod2a.group(9)+":\/\/"+bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)+bluecoatmethod2a.group(13); client_http_useragent=bluecoatmethod2a.group(14);
+  if bluecoatmethod2a.group(9) == "tcp" and bluecoatmethod2a.group(13) != "-":
+   client_http_uri=bluecoatmethod2a.group(10)
+  if not bluecoatmethod2a.group(13):
+   client_http_useragent=bluecoatmethod2a.group(14)
+  if bluecoatmethod2a.group(13) == "-" and bluecoatmethod2a.group(9) != "tcp":
+   client_http_uri=bluecoatmethod2a.group(9)+":\/\/"+bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)
+  elif bluecoatmethod2a.group(13) == "-" and bluecoatmethod2a.group(9) == "tcp":
+   client_http_uri=bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)
+  if debug2: print "passage dans BlueCoat 2 avec http_method regexp."
+
+
+# Format MAIN SGOS v6.5.5.5
+#Fields: date time time-taken c-ip sc-status s-action sc-bytes cs-bytes cs-method cs-uri-scheme cs-host cs-uri-port cs-uri-path cs-uri-query cs-username cs-auth-group s-supplier-name rs(Content-Type) cs(Referer) cs(User-Agent) sc-filter-result cs-categories x-virus-id s-ip
+#2014-12-27 19:32:40 306 10.0.0.1 200 TCP_ACCELERATED 39 213 CONNECT tcp snippets.mozilla.com 443 / - - - 172.16.0.1 - - "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20130416 Firefox/20.0" OBSERVED "Technology/Internet" - 172.16.0.1
+#2014-12-27 19:32:40 70 10.0.0.1 200 TCP_NC_MISS 1665 512 POST http gtssl-ocsp.geotrust.com 80 / - - - gtssl-ocsp.geotrust.com application/ocsp-response - "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20130416 Firefox/20.0" OBSERVED "Technology/Internet" - 172.16.0.1
+#2014-12-27 19:36:58 27 10.0.0.1 200 TCP_NC_MISS 411 731 GET http www.google.fr 80 /6407654/ ?label=All - - www.google.fr image/gif http://www.test.fr/ "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20130416 Firefox/20.0" OBSERVED "Search Engines/Portals" - 172.16.0.1
+#2014-12-27 19:36:59 1 10.0.0.1 0 DENIED 0 0 unknown ssl webanalytics.btelligent.net 443 / - - - webanalytics.btelligent.net - - - DENIED "Placeholders" - 172.16.0.1
+ elif bluecoatmethod3a:
+  server_hostname_ip=bluecoatmethod3a.group(1); timestamp_central=bluecoatmethod3a.group(2)+" "+bluecoatmethod3a.group(3); client_hostname_ip=bluecoatmethod3a.group(4); http_reply_code=bluecoatmethod3a.group(5); client_http_method=bluecoatmethod3a.group(6); client_http_uri=bluecoatmethod3a.group(7)+":\/\/"+bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)+bluecoatmethod3a.group(11); client_username=bluecoatmethod3a.group(12); client_http_referer=bluecoatmethod3a.group(13); client_http_useragent=bluecoatmethod3a.group(14);
+  if bluecoatmethod3a.group(7) == "tcp" and bluecoatmethod3a.group(11) != "-":
+   client_http_uri=bluecoatmethod3a.group(8)
+  if bluecoatmethod3a.group(11) == "-" and bluecoatmethod3a.group(7) != "tcp":
+   client_http_uri=bluecoatmethod3a.group(7)+":\/\/"+bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)
+  elif bluecoatmethod3a.group(11) == "-" and bluecoatmethod3a.group(7) == "tcp":
+   client_http_uri=bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)
+  if debug2: print "passage dans BlueCoat 3 avec http_method regexp."
 
 
 # log proxy McAfee WebGateway default v7.2.x (missing Referer and Cookie)
