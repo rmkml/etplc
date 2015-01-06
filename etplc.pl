@@ -16,7 +16,12 @@
 #
 # Contact: rmkml@yahoo.fr
 
+# Todo: remove $tutu ;)
+
 # changelog:
+#  6jan2015: use new Sys::Hostname perl module
+#  5jan2015: rewrite argument with Getopt::Long
+#  3jan2015: Happy New Year and remove length minor performance
 # 28dec2014: add remote_ip bluecoat main format logs v6.5.5
 # 27dec2014: fix bluecoat main format logs v6.5.5, thx Damien
 # 17dec2014: fix apache logs
@@ -56,6 +61,9 @@
 use strict;
 use warnings;
 use IO::Socket::INET;
+
+# sudo aptitude install liburi-escape-xs-perl # ubuntu
+# sudo yum install perl-URI-Escape-XS # fedora
 use URI::Escape::XS; # decodeURIComponent()
 
 # sudo aptitude install libstring-escape-perl # ubuntu
@@ -63,6 +71,7 @@ use URI::Escape::XS; # decodeURIComponent()
 # sudo yum install perl-String-Escape # fedora
 use String::Escape qw( printable unprintable );
 
+# sudo yum install perl-Thread-Queue # fedora
 use threads;
 use Thread::Queue;
 
@@ -70,14 +79,18 @@ use Thread::Queue;
 # sudo yum install perl-PerlIO-gzip # fedora
 use PerlIO::gzip;
 
+use Getopt::Long;
+
+use Sys::Hostname;
+my $host = hostname;
+
+####################################################################################################
+
 my $recieved_data;
 
 my ($timestamp_central,$server_hostname_ip,$timestamp_unix,$client_hostname_ip,$client_username,$http_reply_code,$client_http_method,$client_http_uri,$web_hostname_ip,$client_http_useragent,$client_http_referer,$client_http_cookie,$server_remote_ip);
 
-my $debug1=0;
-my $debug2=0;
 my $output_escape;
-my @fileemergingthreats;
 my @tableauuricontent;
 my @tableauuseragent;
 my @tableauhttpmethod;
@@ -86,12 +99,6 @@ my %hash;
 my $etmsg;
 my $clef;
 my $clef2;
-my $category='\S+';
-
-my $syslogsock;
-my $syslogip="127.0.0.1";
-my $syslogport="514";
-my $syslogproto="udp";
 
 # A new empty queue
 my $queue = Thread::Queue->new();
@@ -99,604 +106,31 @@ my $queue = Thread::Queue->new();
 # flush after every write
 $| = 1;
 
-if( -t STDIN )
-{
- print "==================================================\n";
- print "ETPLC (Emerging Threats Proxy Logs Checker)\n";
- print "Check your Proxy or WebServer Logs with Emerging Threats Community Ruleset.\n";
- print "http://etplc.org - Twitter: \@Rmkml\n";
- print "\n";
- print "Example: tail -f /var/log/messages | perl etplc.pl -f abc.rules.gz\n";
- print "For enable optional syslog, add -s on command line\n";
- print "For enable optional debugging, add -d on command line\n";
- print "For enable optional category, add -c all|proxy|webserver on command line\n";
- print "==================================================\n";
- exit;
-}
+####################################################################################################
 
-if( @ARGV == 1 )
-{
- print "exit, you must need more than one argument\n";
- exit;
-}
-elsif( @ARGV == 2 )
-{
- if( $ARGV[0] eq "-f" )
- {
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
- else
- {
-  print "exit, wrong argument\n";
-  exit;
- }
-}
-elsif( @ARGV == 3 )
-{
- if( ($ARGV[0] eq "-s") && ($ARGV[1] eq "-f") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  if( $ARGV[2] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[2] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[2] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-s") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
- elsif( ($ARGV[0] eq "-d") && ($ARGV[1] eq "-f") )
- {
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[2] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[2] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[2] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-d") )
- {
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
- else
- {
-  print "exit, wrong argument\n";
-  exit;
- }
-}
-elsif( @ARGV == 4 )
-{
- if( ($ARGV[0] eq "-s") && ($ARGV[1] eq "-d") && ($ARGV[2] eq "-f") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[3] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[3] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[3] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
- elsif( ($ARGV[0] eq "-d") && ($ARGV[1] eq "-s") && ($ARGV[2] eq "-f") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[3] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[3] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[3] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-s") && ($ARGV[3] eq "-d") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-d") && ($ARGV[3] eq "-s") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
- elsif( ($ARGV[0] eq "-s") && ($ARGV[1] eq "-f") && ($ARGV[3] eq "-d") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[2] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[2] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[2] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
- elsif( ($ARGV[0] eq "-d") && ($ARGV[1] eq "-f") && ($ARGV[3] eq "-s") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[2] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[2] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[2] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
- }
+my $file;
+my @fileemergingthreats;
+my $syslog;
+my $debug;
+my $debug1=0;
+my $debug2=0;
+my $syslogsock;
+my $syslogip="127.0.0.1";
+my $syslogport="514";
+my $syslogproto="udp";
+my $category='\S+';
+GetOptions ("f=s"      => \$file,    # string
+            "d"        => \$debug,   # flag
+            "s"        => \$syslog,  # flag
+            "c=s"      => \$category)# string
+or die("Error in command line arguments\n");
 
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-c") )
- {
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[3] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-c") && ($ARGV[2] eq "-f") )
- {
-  if( $ARGV[3] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[3] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[3] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[1] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- else
- {
-  print "exit, wrong argument\n";
-  exit;
- }
-}
-elsif( @ARGV == 5 )
+if( $file )
 {
- if( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-c") && ($ARGV[4] eq "-s") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
+  if( $file =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $file or die $!; }
+  else { open FILEEMERGINGTHREATS, $file or die $!; }
   push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
   close FILEEMERGINGTHREATS;
-  if( $ARGV[3] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-c") && ($ARGV[2] eq "-f") && ($ARGV[4] eq "-s") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  if( $ARGV[3] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[3] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[3] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[1] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-s") && ($ARGV[1] eq "-f") && ($ARGV[3] eq "-c") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  if( $ARGV[2] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[2] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[2] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[4] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-s") && ($ARGV[1] eq "-c") && ($ARGV[3] eq "-f") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  if( $ARGV[4] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[4] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[4] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[2] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-s") && ($ARGV[3] eq "-c") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[4] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-c") && ($ARGV[2] eq "-s") && ($ARGV[3] eq "-f") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  if( $ARGV[4] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[4] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[4] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[1] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-c") && ($ARGV[4] eq "-d") )
- {
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[3] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-c") && ($ARGV[2] eq "-f") && ($ARGV[4] eq "-d") )
- {
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[3] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[3] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[3] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[1] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-d") && ($ARGV[1] eq "-f") && ($ARGV[3] eq "-c") )
- {
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[2] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[2] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[2] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[4] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-d") && ($ARGV[3] eq "-c") )
- {
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[4] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-c") && ($ARGV[2] eq "-d") && ($ARGV[3] eq "-f") )
- {
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[4] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[4] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[4] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[1] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- else
- {
-  print "exit, wrong argument\n";
-  exit;
- }
-}
-elsif( @ARGV == 6 )
-{
- if( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-c") && ($ARGV[4] eq "-s") && ($ARGV[5] eq "-d") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[3] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-c") && ($ARGV[4] eq "-d") && ($ARGV[5] eq "-s") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[3] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-s") && ($ARGV[1] eq "-f") && ($ARGV[3] eq "-c") && ($ARGV[5] eq "-d") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[2] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[2] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[2] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[4] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-d") && ($ARGV[1] eq "-f") && ($ARGV[3] eq "-c") && ($ARGV[5] eq "-s") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[2] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[2] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[2] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[4] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-d") && ($ARGV[1] eq "-s") && ($ARGV[2] eq "-f") && ($ARGV[4] eq "-c") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[3] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[3] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[3] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[5] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-s") && ($ARGV[1] eq "-d") && ($ARGV[2] eq "-f") && ($ARGV[4] eq "-c") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[3] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[3] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[3] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS; 
-  if( $ARGV[5] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit; 
-  }
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-s") && ($ARGV[3] eq "-c") && ($ARGV[5] eq "-d") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[4] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-d") && ($ARGV[3] eq "-c") && ($ARGV[5] eq "-s") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[4] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-s") && ($ARGV[3] eq "-d") && ($ARGV[4] eq "-c") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[5] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- elsif( ($ARGV[0] eq "-f") && ($ARGV[2] eq "-d") && ($ARGV[3] eq "-s") && ($ARGV[4] eq "-c") )
- {
-  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
-  $debug1=1;
-  $debug2=1;
-  if( $ARGV[1] =~ /\.gz$/ ) { open FILEEMERGINGTHREATS, "<:gzip", $ARGV[1] or die $!; }
-  else { open FILEEMERGINGTHREATS, $ARGV[1] or die $!; }
-  push(@fileemergingthreats, <FILEEMERGINGTHREATS>);
-  close FILEEMERGINGTHREATS;
-  if( $ARGV[5] =~ /^(?:any|proxy|webserver)$/i )
-  {
-   $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $ARGV[3]=~/^webserver$/i;
-   $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)'     if $ARGV[3]=~/^proxy$/i;
-  }
-  else
-  {
-   print "You choose wrong Category on ETPLC, please use any or proxy or webserver (without category use default any)\n";
-   exit;
-  }
- }
- else
- {
-  print "exit, wrong argument\n";
-  exit;
- }
-}
-elsif( @ARGV > 6)
-{
- print "exit, too many arguments\n";
- exit;
 }
 else
 {
@@ -712,6 +146,15 @@ else
  print "==================================================\n";
  exit;
 }
+$debug1=1 && $debug2=1 if $debug;
+if( $syslog )
+{
+ $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
+}
+$category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $category =~ /^webserver$/i;
+$category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)' if $category =~ /^proxy$/i;
+
+####################################################################################################
 
 if( open(CPUINFO, "/proc/cpuinfo") )
 {
@@ -3666,7 +3109,7 @@ my @threads = map threads->create(sub {
  else {
   if( $syslogsock )
   {
-   print $syslogsock $ENV{HOSTNAME}." etplc: aucun parser ne correspond au motif !!! $output_escape\n";
+   print $syslogsock "$host etplc: aucun parser ne correspond au motif !!! $output_escape\n";
   }
   else
   {
@@ -3758,20 +3201,10 @@ my @threads = map threads->create(sub {
 
     elsif( $clef eq "httpuricourt" && !$jump )
     {
-     if( $hash{$etmsg}{"httpuricourt"}[0] && $client_http_uri && length($hash{$etmsg}{"httpuricourt"}[0]) <= length($client_http_uri) )
+     if( $hash{$etmsg}{"httpuricourt"}[0] && $client_http_uri && index(lc($client_http_uri), $hash{$etmsg}{"httpuricourt"}[0]) != -1 )
      {
-      print "ok comparaison length (httpuricourt: ",$hash{$etmsg}{"httpuricourt"}[0]," et client_http_uri: $client_http_uri)\n" if $debug2;
-      if( $hash{$etmsg}{"httpuricourt"}[0] && $client_http_uri && index(lc($client_http_uri), $hash{$etmsg}{"httpuricourt"}[0]) != -1 )
-      {
-       print "ici2: ",$hash{$etmsg}{"httpuricourt"}[0],"\n" if $debug2 && $hash{$etmsg}{"httpuricourt"}[0];
-       $founduricourt1=1;
-      }
-      elsif( $hash{$etmsg}{"httpuricourt"}[0] )
-      {
-       print "uri not found: jump (",$hash{$etmsg}{"httpuricourt"}[0],")\n" if $debug2;
-       $jump=1;
-       last;
-      }
+      print "ici2: ",$hash{$etmsg}{"httpuricourt"}[0],"\n" if $debug2 && $hash{$etmsg}{"httpuricourt"}[0];
+      $founduricourt1=1;
      }
      elsif( $hash{$etmsg}{"httpuricourt"}[0] )
      {
@@ -3999,7 +3432,8 @@ my @threads = map threads->create(sub {
    {
     if( $syslogsock && ($foundmethod or $founduricourt1 or $foundurilong1 or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip) )
     {
-     print $syslogsock $ENV{HOSTNAME}." etplc: ok trouvé: ";
+     my $tutu='';
+     print $syslogsock "$host etplc: ok trouvé: ";
      print $syslogsock "timestamp: $timestamp_central, " if $timestamp_central;
      print $syslogsock "server_hostname_ip: $server_hostname_ip, " if $server_hostname_ip;
      print $syslogsock "client_hostname_ip: $client_hostname_ip, " if $client_hostname_ip;
@@ -4012,18 +3446,54 @@ my @threads = map threads->create(sub {
      print $syslogsock "http_reply_code: $http_reply_code, " if $http_reply_code;
      print $syslogsock "server_remote_ip: $server_remote_ip, " if $server_remote_ip;
      print $syslogsock "etmsg: $etmsg" if $etmsg;
-     print $syslogsock ", etmethod: ",$hash{$etmsg}{"httpmethod"}[0] if $foundmethod;
-     print $syslogsock ", eturishort: ",$hash{$etmsg}{"httpuricourt"}[0] if $founduricourt1;
-     print $syslogsock ", eturilong: ",$hash{$etmsg}{"httpurilong"}[0] if $foundurilong1;
-     if( $foundurilongdistance1 ){ print $syslogsock ", eturilongdistance: "; print $syslogsock "$_ ",foreach values $hash{$etmsg}{"httpurilongdistance"} }
-     print $syslogsock ", etagent: ",$hash{$etmsg}{"httpagentshort"}[0] if $foundagent;
-     print $syslogsock ", etreferer: ",$hash{$etmsg}{"httpreferer"}[0] if $foundreferer;
-     print $syslogsock ", etcookie: ",$hash{$etmsg}{"httpcookie"}[0] if $foundcookie;
-     print $syslogsock ", etpcrereferer: ",$hash{$etmsg}{"pcrereferer"}[0] if $foundpcrereferer;
-     print $syslogsock ", etpcreagent: ",$hash{$etmsg}{"pcreagent"}[0] if $foundpcreagent;
-     print $syslogsock ", etpcrecookie: ",$hash{$etmsg}{"pcrecookie"}[0] if $foundpcrecookie;
-     print $syslogsock ", etpcreuri: ",$hash{$etmsg}{"pcreuri"}[0] if $foundpcreuri;
-     print $syslogsock ", etremoteip: ",$hash{$etmsg}{"remoteip"}[0] if $foundremoteip;
+
+     #print $syslogsock ", etmethod: ",$hash{$etmsg}{"httpmethod"}[0] if $foundmethod;
+     $tutu=$hash{$etmsg}{"httpmethod"}[0];
+     print $syslogsock ", etmethod: $tutu" if $foundmethod;
+
+     #print $syslogsock ", eturishort: ",$hash{$etmsg}{"httpuricourt"}[0] if $founduricourt1;
+     $tutu=$hash{$etmsg}{"httpuricourt"}[0];
+     print $syslogsock ", eturishort: $tutu" if $founduricourt1;
+
+     #print $syslogsock ", eturilong: ",$hash{$etmsg}{"httpurilong"}[0] if $foundurilong1;
+     $tutu=$hash{$etmsg}{"httpurilong"}[0];
+     print $syslogsock ", eturilong: $tutu" if $foundurilong1;
+
+     #if( $foundurilongdistance1 ){ print $syslogsock ", eturilongdistance: "; print $syslogsock "$_ ",foreach values $hash{$etmsg}{"httpurilongdistance"} }
+     if( $foundurilongdistance1 ){ print $syslogsock ", eturilongdistance: "; $tutu.= "$_ ",foreach values $hash{$etmsg}{"httpurilongdistance"}; print $syslogsock $tutu; }
+
+     #print $syslogsock ", etagent: ",$hash{$etmsg}{"httpagentshort"}[0] if $foundagent;
+     $tutu=$hash{$etmsg}{"httpagentshort"}[0];
+     print $syslogsock ", etagent: $tutu" if $foundagent;
+
+     #print $syslogsock ", etreferer: ",$hash{$etmsg}{"httpreferer"}[0] if $foundreferer;
+     $tutu=$hash{$etmsg}{"httpreferer"}[0];
+     print $syslogsock ", etreferer: $tutu" if $foundreferer;
+
+     #print $syslogsock ", etcookie: ",$hash{$etmsg}{"httpcookie"}[0] if $foundcookie;
+     $tutu=$hash{$etmsg}{"httpcookie"}[0];
+     print $syslogsock ", etcookie: $tutu" if $foundcookie;
+
+     #print $syslogsock ", etpcrereferer: ",$hash{$etmsg}{"pcrereferer"}[0] if $foundpcrereferer;
+     $tutu=$hash{$etmsg}{"pcrereferer"}[0];
+     print $syslogsock ", etpcrereferer: $tutu" if $foundpcrereferer;
+
+     #print $syslogsock ", etpcreagent: ",$hash{$etmsg}{"pcreagent"}[0] if $foundpcreagent;
+     $tutu=$hash{$etmsg}{"pcreagent"}[0];
+     print $syslogsock ", etpcreagent: $tutu" if $foundpcreagent;
+
+     #print $syslogsock ", etpcrecookie: ",$hash{$etmsg}{"pcrecookie"}[0] if $foundpcrecookie;
+     $tutu=$hash{$etmsg}{"pcrecookie"}[0];
+     print $syslogsock ", etpcrecookie: $tutu" if $foundpcrecookie;
+
+     #print $syslogsock ", etpcreuri: ",$hash{$etmsg}{"pcreuri"}[0] if $foundpcreuri;
+     $tutu=$hash{$etmsg}{"pcreuri"}[0];
+     print $syslogsock ", etpcreuri: $tutu" if $foundpcreuri;
+
+     #print $syslogsock ", etremoteip: ",$hash{$etmsg}{"remoteip"}[0] if $foundremoteip;
+     $tutu=$hash{$etmsg}{"remoteip"}[0];
+     print $syslogsock ", etremoteip: $tutu" if $foundremoteip;
+
      print $syslogsock "\n";
     }
     elsif( $foundmethod or $founduricourt1 or $foundurilong1 or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip)
