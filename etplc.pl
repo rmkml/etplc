@@ -19,6 +19,7 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+#  9jan2015: fix apache format logs, thx Alexandre
 #  6jan2015: use new Sys::Hostname perl module
 #  5jan2015: rewrite argument with Getopt::Long
 #  3jan2015: Happy New Year and remove length minor performance
@@ -3025,9 +3026,13 @@ my @threads = map threads->create(sub {
 # apache logs:
 # 127.0.0.1 - - [05/Dec/2014:10:33:40 +0100] "GET /linux/ HTTP/1.1" 200 3713 "http://localhost/" "Mozilla/5.0 (X11; Linux x86_64; rv:31.0) Gecko/20100101 Firefox/31.0" "cookie=1"
 #
- elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+\-\s+\[(.*?)\]\s+\\\"([^\s]+)\s([^\s]+)\s.*\\\"\s(\d+)\s(?:\d+|\-)(?:\s\\\"(.*?)\\\")?(?:\s\\\"(.*?)\\\")?(?:\s\\\"(.*?)\\\")?$/ ) {
-  $timestamp_central=$1; $server_hostname_ip=$2; $client_hostname_ip=$3; $timestamp_unix=$4; $client_http_method=$5; $client_http_uri=$6; $http_reply_code=$7; $client_http_referer=$8; $client_http_useragent=$9; $client_http_cookie=$10;
-  $client_username="";
+# 1.1.1.1 - user [23/Mar/2014:07:41:08 +0100] "GET http://test.com/ont.woff HTTP/1.1" 200 27533 "http://www.referer.com/style.css" "Mozilla/5.0 (Windows NT 5.1; rv:27.0) Gecko/20100101 Firefox/27.0" TCP_MEM_HIT:HIER_NONE text/plain 261 - - "URL category ALL is ALLOWED"
+#
+#elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+\-\s+\[(.*?)\]\s+\\\"([^\s]+)\s([^\s]+)\s.*\\\"\s(\d+)\s(?:\d+|\-)(?:\s\\\"(.*?)\\\")?(?:\s\\\"(.*?)\\\")?(?:\s\\\"(.*?)\\\")?$/ ) {
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+(\S+)\s+\[([^\]]*?)\]\s+\\\"([^\s]+)\s(\S+)\s\S+\\\"\s(\d+)\s(?:\d+|\-)(?:\s\\\"(.*?)\\\")?(?:\s\\\"(.*?)\\\")?(?:\s\\\"(.*?)\\\")?/ ) {
+  #$timestamp_central=$1; $server_hostname_ip=$2; $client_hostname_ip=$3; $timestamp_unix=$4; $client_http_method=$5; $client_http_uri=$6; $http_reply_code=$7; $client_http_referer=$8; $client_http_useragent=$9; $client_http_cookie=$10;
+  $timestamp_central=$1; $server_hostname_ip=$2; $client_hostname_ip=$3; $client_username=$4; $timestamp_unix=$5; $client_http_method=$6; $client_http_uri=$7; $http_reply_code=$8; $client_http_referer=$9; $client_http_useragent=$10; $client_http_cookie=$11;
+  if( $client_username eq "-" ){ $client_username="" }
   print "passage dans Apache regexp.\n" if $debug2;
  }
 
