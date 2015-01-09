@@ -18,6 +18,7 @@
 # Contact: rmkml@yahoo.fr
 
 # ChangeLog:
+#  9jan2015: merge python v2 and v3 and fix apache format logs, thx Alexandre
 # 28dec2014: add remote_ip bluecoat main format logs v6.5.5
 # 27dec2014: fix bluecoat main format logs v6.5.5, thx Damien
 # 17dec2014: fix apache logs + httpreferer4
@@ -120,7 +121,8 @@ match_ip1 = re.compile( r'^\s*alert\s+ip\s+\S+\s+\S+\s+\-\>\s+(\d{1,3}\.\d{1,3}\
 squiddefault1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z\_]+\/(\S+)\s')
 #squidua1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\"([^\"]+)\" \"([^\"]+)\" \"([^\"]+)\"')
 squidua1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\"([^\"]+)\" \"([^\"]+)\" \"([^\"]+)\"(?:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?')
-apache1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+\-\s+\[(.*?)\]\s+\"([^\s]+)\s([^\s]+)\s.*\"\s(\d+)\s(?:\d+|\-)(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?$')
+#apache1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+\-\s+\[(.*?)\]\s+\"([^\s]+)\s([^\s]+)\s.*\"\s(\d+)\s(?:\d+|\-)(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?$')
+apache1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+(\S+)\s+\[([^\]]*?)\]\s+\"([^\s]+)\s(\S+)\s\S+\"\s(\d+)\s(?:\d+|\-)(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?')
 tmg1 = re.compile( r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)')
 bluecoat1c = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\"[^\"]*?\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?')
 bluecoatmethod2c = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\"[^\"]*?\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?')
@@ -138,12 +140,16 @@ def function_replacement_http_uri(match):
 #######################################################################################
 
 def function_replacement_http_agent_short(match):
- return match.group(1).decode("hex")
+ if sys.version_info>=(3,):
+  match = match.group(1)
+  return bytes.fromhex(match).decode('utf-8')
+ else:
+  return match.group(1).decode("hex")
 
 #######################################################################################
 
 def function_match_http_uri( lineet ):
- if debug1: print "brut1: "+lineet
+ if debug1: print("brut1: "+lineet)
  etmsg1 = match_http_uri2.group(1)
  http_method2 = 0
  http_methodnocase3 = 0
@@ -546,173 +552,173 @@ def function_match_http_uri( lineet ):
 
  if pcre_uri73 and http_uri03 and ( http_uri03.lower() in pcre_uri73.lower() ):
   http_uri03=""
-  if debug1: print "ok trouvé grep3a ("+http_uri03+")"
+  if debug1: print("ok trouvé grep3a ("+http_uri03+")")
  elif pcre_uri73 and http_uri03 and ( '&' in http_uri03 ):
   http_uri03 = re.sub( r'\&', r'\\x26', http_uri03 )
   if http_uri03.lower() in pcre_uri73.lower():
    http_uri03=""
-   if debug1: print "ok trouvé grep3b ("+http_uri03+")"
+   if debug1: print("ok trouvé grep3b ("+http_uri03+")")
  elif pcre_uri73 and http_uri03 and ( '=' in http_uri03 ):
   http_uri03 = re.sub( r'\=', r'\\x3D', http_uri03 )
   if http_uri03.lower() in pcre_uri73.lower():
    http_uri03=""
-   if debug1: print "ok trouvé grep3c ("+http_uri03+")"
+   if debug1: print("ok trouvé grep3c ("+http_uri03+")")
  if pcre_uri73 and http_uri08 and ( http_uri08.lower() in pcre_uri73.lower() ):
   http_uri08=""
-  if debug1: print "ok trouvé grep8a ("+http_uri08+")"
+  if debug1: print("ok trouvé grep8a ("+http_uri08+")")
  elif pcre_uri73 and http_uri08 and ( '&' in http_uri08 ):
   http_uri08 = re.sub( r'\&', r'\\x26', http_uri08 )
   if http_uri08.lower() in pcre_uri73.lower():
    http_uri08=""
-   if debug1: print "ok trouvé grep8b ("+http_uri08+")"
+   if debug1: print("ok trouvé grep8b ("+http_uri08+")")
  elif pcre_uri73 and http_uri08 and ( '=' in http_uri08 ):
   http_uri08 = re.sub( r'\=', r'\\x3D', http_uri08 )
   if http_uri08.lower() in pcre_uri73.lower():
    http_uri08=""
-   if debug1: print "ok trouvé grep8c ("+http_uri08+")"
+   if debug1: print("ok trouvé grep8c ("+http_uri08+")")
  if pcre_uri73 and http_uri13 and ( http_uri13.lower() in pcre_uri73.lower() ):
   http_uri13=""
-  if debug1: print "ok trouvé grep13a ("+http_uri13+")"
+  if debug1: print("ok trouvé grep13a ("+http_uri13+")")
  elif pcre_uri73 and http_uri13 and ( '&' in http_uri13 ):
   http_uri13 = re.sub( r'\&', r'\\x26', http_uri13 )
   if http_uri13.lower() in pcre_uri73.lower():
    http_uri13=""
-   if debug1: print "ok trouvé grep13b ("+http_uri13+")"
+   if debug1: print("ok trouvé grep13b ("+http_uri13+")")
  elif pcre_uri73 and http_uri13 and ( '=' in http_uri13 ):
   http_uri13 = re.sub( r'\=', r'\\x3D', http_uri13 )
   if http_uri13.lower() in pcre_uri73.lower():
    http_uri13=""
-   if debug1: print "ok trouvé grep13c ("+http_uri13+")"
+   if debug1: print("ok trouvé grep13c ("+http_uri13+")")
  if pcre_uri73 and http_uri18 and ( http_uri18.lower() in pcre_uri73.lower() ):
   http_uri18=""
-  if debug1: print "ok trouvé grep18a ("+http_uri18+")"
+  if debug1: print("ok trouvé grep18a ("+http_uri18+")")
  elif pcre_uri73 and http_uri18 and ( '&' in http_uri18 ):
   http_uri18 = re.sub( r'\&', r'\\x26', http_uri18 )
   if http_uri18.lower() in pcre_uri73.lower():
    http_uri18=""
-   if debug1: print "ok trouvé grep18b ("+http_uri18+")"
+   if debug1: print("ok trouvé grep18b ("+http_uri18+")")
  elif pcre_uri73 and http_uri18 and ( '=' in http_uri18 ):
   http_uri18 = re.sub( r'\=', r'\\x3D', http_uri18 )
   if http_uri18.lower() in pcre_uri73.lower():
    http_uri18=""
-   if debug1: print "ok trouvé grep18c ("+http_uri18+")"
+   if debug1: print("ok trouvé grep18c ("+http_uri18+")")
  if pcre_uri73 and http_uri23 and ( http_uri23.lower() in pcre_uri73.lower() ):
   http_uri23=""
-  if debug1: print "ok trouvé grep23a ("+http_uri23+")"
+  if debug1: print("ok trouvé grep23a ("+http_uri23+")")
  elif pcre_uri73 and http_uri23 and ( '&' in http_uri23 ):
   http_uri23 = re.sub( r'\&', r'\\x26', http_uri23 )
   if http_uri23.lower() in pcre_uri73.lower():
    http_uri23=""
-   if debug1: print "ok trouvé grep23b ("+http_uri23+")"
+   if debug1: print("ok trouvé grep23b ("+http_uri23+")")
  elif pcre_uri73 and http_uri23 and ( '=' in http_uri23 ):
   http_uri23 = re.sub( r'\=', r'\\x3D', http_uri23 )
   if http_uri23.lower() in pcre_uri73.lower():
    http_uri23=""
-   if debug1: print "ok trouvé grep23c ("+http_uri23+")"
+   if debug1: print("ok trouvé grep23c ("+http_uri23+")")
  if pcre_uri73 and http_uri28 and ( http_uri28.lower() in pcre_uri73.lower() ):
   http_uri28=""
-  if debug1: print "ok trouvé grep28a ("+http_uri23+")"
+  if debug1: print("ok trouvé grep28a ("+http_uri23+")")
  elif pcre_uri73 and http_uri28 and ( '&' in http_uri28 ):
   http_uri28 = re.sub( r'\&', r'\\x26', http_uri28 )
   if http_uri28.lower() in pcre_uri73.lower():
    http_uri28=""
-   if debug1: print "ok trouvé grep28b ("+http_uri28+")"
+   if debug1: print("ok trouvé grep28b ("+http_uri28+")")
  elif pcre_uri73 and http_uri28 and ( '=' in http_uri28 ):
   http_uri28 = re.sub( r'\=', r'\\x3D', http_uri28 )
   if http_uri28.lower() in pcre_uri73.lower():
    http_uri28=""
-   if debug1: print "ok trouvé grep28c ("+http_uri28+")"
+   if debug1: print("ok trouvé grep28c ("+http_uri28+")")
  if pcre_uri73 and http_uri33 and ( http_uri33.lower() in pcre_uri73.lower() ):
   http_uri33=""
-  if debug1: print "ok trouvé grep33a ("+http_uri33+")"
+  if debug1: print("ok trouvé grep33a ("+http_uri33+")")
  elif pcre_uri73 and http_uri33 and ( '&' in http_uri33 ):
   http_uri33 = re.sub( r'\&', r'\\x26', http_uri33 )
   if http_uri33.lower() in pcre_uri73.lower():
    http_uri33=""
-   if debug1: print "ok trouvé grep33b ("+http_uri33+")"
+   if debug1: print("ok trouvé grep33b ("+http_uri33+")")
  elif pcre_uri73 and http_uri33 and ( '=' in http_uri33 ):
   http_uri33 = re.sub( r'\=', r'\\x3D', http_uri33 )
   if http_uri33.lower() in pcre_uri73.lower():
    http_uri33=""
-   if debug1: print "ok trouvé grep33c ("+http_uri33+")"
+   if debug1: print("ok trouvé grep33c ("+http_uri33+")")
  if pcre_uri73 and http_uri38 and ( http_uri38.lower() in pcre_uri73.lower() ):
   http_uri38=""
-  if debug1: print "ok trouvé grep38a ("+http_uri38+")"
+  if debug1: print("ok trouvé grep38a ("+http_uri38+")")
  elif pcre_uri73 and http_uri38 and ( '&' in http_uri38 ):
   http_uri38 = re.sub( r'\&', r'\\x26', http_uri38 )
   if http_uri38.lower() in pcre_uri73.lower():
    http_uri38=""
-   if debug1: print "ok trouvé grep38b ("+http_uri38+")"
+   if debug1: print("ok trouvé grep38b ("+http_uri38+")")
  elif pcre_uri73 and http_uri38 and ( '=' in http_uri38 ):
   http_uri38 = re.sub( r'\=', r'\\x3D', http_uri38 )
   if http_uri38.lower() in pcre_uri73.lower():
    http_uri38=""
-   if debug1: print "ok trouvé grep38c ("+http_uri38+")"
+   if debug1: print("ok trouvé grep38c ("+http_uri38+")")
  if pcre_uri73 and http_uri43 and ( http_uri43.lower() in pcre_uri73.lower() ):
   http_uri43=""
-  if debug1: print "ok trouvé grep43a ("+http_uri43+")"
+  if debug1: print("ok trouvé grep43a ("+http_uri43+")")
  elif pcre_uri73 and http_uri43 and ( '&' in http_uri43 ):
   http_uri43 = re.sub( r'\&', r'\\x26', http_uri43 )
   if http_uri43.lower() in pcre_uri73.lower():
    http_uri43=""
-   if debug1: print "ok trouvé grep43b ("+http_uri43+")"
+   if debug1: print("ok trouvé grep43b ("+http_uri43+")")
  elif pcre_uri73 and http_uri43 and ( '=' in http_uri43 ):
   http_uri43 = re.sub( r'\=', r'\\x3D', http_uri43 )
   if http_uri43.lower() in pcre_uri73.lower():
    http_uri43=""
-   if debug1: print "ok trouvé grep43c ("+http_uri43+")"
+   if debug1: print("ok trouvé grep43c ("+http_uri43+")")
  if pcre_uri73 and http_uri48 and ( http_uri48.lower() in pcre_uri73.lower() ):
   http_uri48=""
-  if debug1: print "ok trouvé grep48a ("+http_uri43+")"
+  if debug1: print("ok trouvé grep48a ("+http_uri43+")")
  elif pcre_uri73 and http_uri48 and ( '&' in http_uri48 ):
   http_uri48 = re.sub( r'\&', r'\\x26', http_uri48 )
   if http_uri48.lower() in pcre_uri73.lower():
    http_uri48=""
-   if debug1: print "ok trouvé grep48b ("+http_uri48+")"
+   if debug1: print("ok trouvé grep48b ("+http_uri48+")")
  elif pcre_uri73 and http_uri48 and ( '=' in http_uri48 ):
   http_uri48 = re.sub( r'\=', r'\\x3D', http_uri48 )
   if http_uri48.lower() in pcre_uri73.lower():
    http_uri48=""
-   if debug1: print "ok trouvé grep48c ("+http_uri48+")"
+   if debug1: print("ok trouvé grep48c ("+http_uri48+")")
  if pcre_uri73 and http_uri53 and ( http_uri53.lower() in pcre_uri73.lower() ):
   http_uri53=""
-  if debug1: print "ok trouvé grep53a ("+http_uri53+")"
+  if debug1: print("ok trouvé grep53a ("+http_uri53+")")
  elif pcre_uri73 and http_uri53 and ( '&' in http_uri53 ):
   http_uri53 = re.sub( r'\&', r'\\x26', http_uri53 )
   if http_uri53.lower() in pcre_uri73.lower():
    http_uri53=""
-   if debug1: print "ok trouvé grep53b ("+http_uri53+")"
+   if debug1: print("ok trouvé grep53b ("+http_uri53+")")
  elif pcre_uri73 and http_uri53 and ( '=' in http_uri53 ):
   http_uri53 = re.sub( r'\=', r'\\x3D', http_uri53 )
   if http_uri53.lower() in pcre_uri73.lower():
    http_uri53=""
-   if debug1: print "ok trouvé grep53c ("+http_uri53+")"
+   if debug1: print("ok trouvé grep53c ("+http_uri53+")")
  if pcre_uri73 and http_uri58 and ( http_uri58.lower() in pcre_uri73.lower() ):
   http_uri58=""
-  if debug1: print "ok trouvé grep58a ("+http_uri58+")"
+  if debug1: print("ok trouvé grep58a ("+http_uri58+")")
  elif pcre_uri73 and http_uri58 and ( '&' in http_uri58 ):
   http_uri58 = re.sub( r'\&', r'\\x26', http_uri58 )
   if http_uri58.lower() in pcre_uri73.lower():
    http_uri58=""
-   if debug1: print "ok trouvé grep58b ("+http_uri58+")"
+   if debug1: print("ok trouvé grep58b ("+http_uri58+")")
  elif pcre_uri73 and http_uri58 and ( '=' in http_uri58 ):
   http_uri58 = re.sub( r'\=', r'\\x3D', http_uri58 )
   if http_uri58.lower() in pcre_uri73.lower():
    http_uri58=""
-   if debug1: print "ok trouvé grep58c ("+http_uri58+")"
+   if debug1: print("ok trouvé grep58c ("+http_uri58+")")
  if pcre_uri73 and http_uri63 and ( http_uri63.lower() in pcre_uri73.lower() ):
   http_uri63=""
-  if debug1: print "ok trouvé grep63a ("+http_uri63+")"
+  if debug1: print("ok trouvé grep63a ("+http_uri63+")")
  elif pcre_uri73 and http_uri63 and ( '&' in http_uri63 ):
   http_uri63 = re.sub( r'\&', r'\\x26', http_uri63 )
   if http_uri63.lower() in pcre_uri73.lower():
    http_uri63=""
-   if debug1: print "ok trouvé grep63b ("+http_uri63+")"
+   if debug1: print("ok trouvé grep63b ("+http_uri63+")")
  elif pcre_uri73 and http_uri63 and ( '=' in http_uri63 ):
   http_uri63 = re.sub( r'\=', r'\\x3D', http_uri63 )
   if http_uri63.lower() in pcre_uri73.lower():
    http_uri63=""
-   if debug1: print "ok trouvé grep63c ("+http_uri63+")"
+   if debug1: print("ok trouvé grep63c ("+http_uri63+")")
 
  if http_header68:
   if re.search(          r'User\\-Agent\\x3A\\x20(?!$)', http_header68, re.I):
@@ -1026,36 +1032,36 @@ def function_match_http_uri( lineet ):
  if pcre_agent79 and http_header68 and ( http_header68.lower() in pcre_agent79.lower() ) and ( '&' in http_header68 ):
   #http_header68 = re.sub( r'\&', r'\\x26', http_header68 ) # &
   http_header68 = ""
-  if debug1: print "ok trouvé grep68a"
+  if debug1: print("ok trouvé grep68a")
  elif pcre_agent79 and http_header68 and ( http_header68.lower() in pcre_agent79.lower() ) and ( '=' in http_header68 ):
   #http_header68 = re.sub( r'\=', r'\\x3D', http_header68 ) # =
   http_header68 = ""
-  if debug1: print "ok trouvé grep68b"
+  if debug1: print("ok trouvé grep68b")
  elif pcre_agent79 and http_header68 and ( http_header68.lower() in pcre_agent79.lower() ):
   http_header68 = ""
-  if debug1: print "ok trouvé grep68c"
+  if debug1: print("ok trouvé grep68c")
  if pcre_agent79 and http_header121 and ( http_header121.lower() in pcre_agent79.lower() ) and ( '&' in http_header121 ):
   #http_header121 = re.sub( r'\&', r'\\x26', http_header121 ) # &
   http_header121 = ""
-  if debug1: print "ok trouvé grep121a"
+  if debug1: print("ok trouvé grep121a")
  elif pcre_agent79 and http_header121 and ( http_header121.lower() in pcre_agent79.lower() ) and ( '=' in http_header121 ):
   #http_header121 = re.sub( r'\=', r'\\x3D', http_header121 ) # =
   http_header121 = ""
-  if debug1: print "ok trouvé grep121b"
+  if debug1: print("ok trouvé grep121b")
  elif pcre_agent79 and http_header121 and ( http_header121.lower() in pcre_agent79.lower() ):
   http_header121 = ""
-  if debug1: print "ok trouvé grep121c"
+  if debug1: print("ok trouvé grep121c")
  if pcre_agent79 and http_header74 and ( http_header74.lower() in pcre_agent79.lower() ) and ( '&' in http_header74 ):
   #http_header74 = re.sub( r'\&', r'\\x26', http_header74 ) # &
   http_header74 = ""
-  if debug1: print "ok trouvé grep74a"
+  if debug1: print("ok trouvé grep74a")
  elif pcre_agent79 and http_header74 and ( http_header74.lower() in pcre_agent79.lower() ) and ( '=' in http_header74 ):
   #http_header74 = re.sub( r'\=', r'\\x3D', http_header74 ) # =
   http_header74 = ""
-  if debug1: print "ok trouvé grep74b"
+  if debug1: print("ok trouvé grep74b")
  elif pcre_agent79 and http_header74 and ( http_header74.lower() in pcre_agent79.lower() ):
   http_header74 = ""
-  if debug1: print "ok trouvé grep74c"
+  if debug1: print("ok trouvé grep74c")
 
  # one uri
  #$abc1= "$pcre_uri73" if $pcre_uri73 && !$http_uri03 && !$http_uri08 && !$http_uri13 && !$http_uri18 && !$http_uri23 && !$http_uri28 && !$http_uri33 && !$http_uri38 && !$http_uri43 && !$http_uri48 && !$http_uri53 && !$http_uri58 && !$http_uri63;
@@ -1360,19 +1366,19 @@ def function_match_http_uri( lineet ):
   tempopcreagent = httppcreagent
   tempopcreagent = re.sub( r'\\(?!$)(?!x[a-f0-9]{2})', r'', tempopcreagent )
   if httpagentshort == tempopcreagent:
-   if debug1: print "tempopcreagent: "+tempopcreagent
+   if debug1: print("tempopcreagent: "+tempopcreagent)
    httppcreagent=0
    tempopcreagent=0
 
- if debug1 and httpuricourt:        print "httpuricourt1: "+etmsg1+", "+httpuricourt.lower()
- if debug1 and tableauuri1:         print "httpurilong1: "+etmsg1+", "+str(tableauuri1)
- if debug1 and abc1:                print "tableaupcreuri1: "+etmsg1+", "+str((abc1, abc1_nocase))
- if debug1 and httppcreagent:       print "tableaupcreagent1: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase))
- if debug1 and httpagentshort:      print "httpagentshort1: "+etmsg1+", "+httpagentshort.lower()
- if debug1 and http_method2:        print "tableauhttpmethod1: "+etmsg1+", "+str((http_method2, http_methodnocase3))
- if debug1 and httpreferer:         print "httpreferer1: "+etmsg1+", "+httpreferer
- if debug1 and pcrereferer:         print "tableaupcrereferer1: "+etmsg1+", "+pcrereferer
- if debug1 and tableauuridistance1: print "tableauuridistance1: "+etmsg1+", "+str(tableauuridistance1)
+ if debug1 and httpuricourt:        print("httpuricourt1: "+etmsg1+", "+httpuricourt.lower())
+ if debug1 and tableauuri1:         print("httpurilong1: "+etmsg1+", "+str(tableauuri1))
+ if debug1 and abc1:                print("tableaupcreuri1: "+etmsg1+", "+str((abc1, abc1_nocase)))
+ if debug1 and httppcreagent:       print("tableaupcreagent1: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase)))
+ if debug1 and httpagentshort:      print("httpagentshort1: "+etmsg1+", "+httpagentshort.lower())
+ if debug1 and http_method2:        print("tableauhttpmethod1: "+etmsg1+", "+str((http_method2, http_methodnocase3)))
+ if debug1 and httpreferer:         print("httpreferer1: "+etmsg1+", "+httpreferer)
+ if debug1 and pcrereferer:         print("tableaupcrereferer1: "+etmsg1+", "+pcrereferer)
+ if debug1 and tableauuridistance1: print("tableauuridistance1: "+etmsg1+", "+str(tableauuridistance1))
 
  if httpuricourt:        dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if httpagentshort:      dict[(etmsg1, 'httpagentshort')] = httpagentshort.lower()
@@ -1389,7 +1395,7 @@ def function_match_http_uri( lineet ):
 #######################################################################################
 
 def function_match_uricontent( lineet ):
- if debug1: print "brut2: "+lineet
+ if debug1: print("brut2: "+lineet)
  etmsg1 = match_uricontent2.group(1)
  http_method2 = 0
  http_methodnocase3 = 0
@@ -1559,69 +1565,69 @@ def function_match_uricontent( lineet ):
 
  if pcre_uri20 and http_uri03 and ( http_uri03.lower() in pcre_uri20.lower() ):
   http_uri03=""
-  if debug1: print "ok trouvé grep3a"
+  if debug1: print("ok trouvé grep3a")
  elif pcre_uri20 and http_uri03 and ( '&' in http_uri03 ):
   http_uri03 = re.sub( r'\&', r'\\x26', http_uri03 )
   if http_uri03.lower() in pcre_uri20.lower():
    http_uri03=""
-   if debug1: print "ok trouvé grep3b"
+   if debug1: print("ok trouvé grep3b")
  elif pcre_uri20 and http_uri03 and ( '=' in http_uri03 ):
   http_uri03 = re.sub( r'\=', r'\\x3D', http_uri03 )
   if http_uri03.lower() in pcre_uri20.lower():
    http_uri03=""
-   if debug1: print "ok trouvé grep3c"
+   if debug1: print("ok trouvé grep3c")
  if pcre_uri20 and http_header06 and ( http_header06.lower() in pcre_uri20.lower() ):
   http_header06=""
-  if debug1: print "ok trouvé grep6a"
+  if debug1: print("ok trouvé grep6a")
  elif pcre_uri20 and http_header06 and ( '&' in http_header06 ):
   http_header06 = re.sub( r'\&', r'\\x26', http_header06 )
   if http_header06.lower() in pcre_uri20.lower():
    http_header06=""
-   if debug1: print "ok trouvé grep6b"
+   if debug1: print("ok trouvé grep6b")
  elif pcre_uri20 and http_header06 and ( '=' in http_header06 ):
   http_header06 = re.sub( r'\=', r'\\x3D', http_header06 )
   if http_header06.lower() in pcre_uri20.lower():
    http_header06=""
-   if debug1: print "ok trouvé grep6c"
+   if debug1: print("ok trouvé grep6c")
  if pcre_uri20 and http_uri11 and ( http_uri11.lower() in pcre_uri20.lower() ):
   http_uri11=""
-  if debug1: print "ok trouvé grep11a"
+  if debug1: print("ok trouvé grep11a")
  elif pcre_uri20 and http_uri11 and ( '&' in http_uri11 ):
   http_uri11 = re.sub( r'\&', r'\\x26', http_uri11 )
   if http_uri11.lower() in pcre_uri20.lower():
    http_uri11=""
-   if debug1: print "ok trouvé grep11b"
+   if debug1: print("ok trouvé grep11b")
  elif pcre_uri20 and http_uri11 and ( '=' in http_uri11 ):
   http_uri11 = re.sub( r'\=', r'\\x3D', http_uri11 )
   if http_uri11.lower() in pcre_uri20.lower():
    http_uri11=""
-   if debug1: print "ok trouvé grep11c"
+   if debug1: print("ok trouvé grep11c")
  if pcre_uri20 and http_uri14 and ( http_uri14.lower() in pcre_uri20.lower() ):
   http_uri14=""
-  if debug1: print "ok trouvé grep14a"
+  if debug1: print("ok trouvé grep14a")
  elif pcre_uri20 and http_uri14 and ( '&' in http_uri14 ):
   http_uri14 = re.sub( r'\&', r'\\x26', http_uri14 )
   if http_uri14.lower() in pcre_uri20.lower():
    http_uri14=""
-   if debug1: print "ok trouvé grep14b"
+   if debug1: print("ok trouvé grep14b")
  elif pcre_uri20 and http_uri14 and ( '=' in http_uri14 ):
   http_uri14 = re.sub( r'\=', r'\\x3D', http_uri14 )
   if http_uri14.lower() in pcre_uri20.lower():
    http_uri14=""
-   if debug1: print "ok trouvé grep14c"
+   if debug1: print("ok trouvé grep14c")
  if pcre_uri20 and http_uri17 and ( http_uri17.lower() in pcre_uri20.lower() ):
   http_uri17=""
-  if debug1: print "ok trouvé grep17a"
+  if debug1: print("ok trouvé grep17a")
  elif pcre_uri20 and http_uri17 and ( '&' in http_uri17 ):
   http_uri17 = re.sub( r'\&', r'\\x26', http_uri17 )
   if http_uri17.lower() in pcre_uri20.lower():
    http_uri17=""
-   if debug1: print "ok trouvé grep17b"
+   if debug1: print("ok trouvé grep17b")
  elif pcre_uri20 and http_uri17 and ( '=' in http_uri17 ):
   http_uri17 = re.sub( r'\=', r'\\x3D', http_uri17 )
   if http_uri17.lower() in pcre_uri20.lower():
    http_uri17=""
-   if debug1: print "ok trouvé grep17c"
+   if debug1: print("ok trouvé grep17c")
 
  # one uri
  #  $abc1= "$pcre_uri20" if $pcre_uri20 && !$http_uri03 && !$http_uri11 && !$http_uri14 && !$http_uri17;
@@ -1717,12 +1723,12 @@ def function_match_uricontent( lineet ):
  if http_headernocase9: httppcreagent_nocase=http_headernocase9
  if http_headernocase12: httppcreagent_nocase=http_headernocase12
 
- if debug1 and httpuricourt:   print "httpuricourt2: "+etmsg1+", "+httpuricourt.lower()
- if debug1 and tableauuri1:    print "httpurilong2: "+etmsg1+", "+str(tableauuri1)
- if debug1 and abc1:           print "tableaupcreuri2: "+etmsg1+", "+str((abc1, abc1_nocase))
- if debug1 and httppcreagent:  print "tableaupcreagent2: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase))
- if debug1 and httpagentshort: print "httpagentshort2: "+etmsg1+", "+httpagentshort.lower()
- if debug1 and http_method2:   print "tableauhttpmethod2: "+etmsg1+", "+str((http_method2, http_methodnocase3))
+ if debug1 and httpuricourt:   print("httpuricourt2: "+etmsg1+", "+httpuricourt.lower())
+ if debug1 and tableauuri1:    print("httpurilong2: "+etmsg1+", "+str(tableauuri1))
+ if debug1 and abc1:           print("tableaupcreuri2: "+etmsg1+", "+str((abc1, abc1_nocase)))
+ if debug1 and httppcreagent:  print("tableaupcreagent2: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase)))
+ if debug1 and httpagentshort: print("httpagentshort2: "+etmsg1+", "+httpagentshort.lower())
+ if debug1 and http_method2:   print("tableauhttpmethod2: "+etmsg1+", "+str((http_method2, http_methodnocase3)))
 
  if httpuricourt:   dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if httpagentshort: dict[(etmsg1, 'httpagentshort')] = httpagentshort.lower()
@@ -1736,7 +1742,7 @@ def function_match_uricontent( lineet ):
 #######################################################################################
 
 def function_match_uriheader( lineet ):
- if debug1: print "brut3: "+lineet
+ if debug1: print("brut3: "+lineet)
  etmsg1 = match_uriheader2.group(1)
  http_method2 = 0
  http_methodnocase3 = 0
@@ -2010,56 +2016,56 @@ def function_match_uriheader( lineet ):
 
  if pcre_uri23 and http_uri03 and ( http_uri03.lower() in pcre_uri23.lower() ):
   http_uri03=""
-  if debug1: print "ok trouvé grep3a"
+  if debug1: print("ok trouvé grep3a")
  elif pcre_uri23 and http_uri03 and ( '&' in http_uri03 ):
   http_uri03 = re.sub( r'\&', r'\\x26', http_uri03 )
   if http_uri03.lower() in pcre_uri23.lower():
    http_uri03=""
-   if debug1: print "ok trouvé grep3b"
+   if debug1: print("ok trouvé grep3b")
  elif pcre_uri23 and http_uri03 and ( '=' in http_uri03 ):
   http_uri03 = re.sub( r'\=', r'\\x3D', http_uri03 )
   if http_uri03.lower() in pcre_uri23.lower():
    http_uri03=""
-   if debug1: print "ok trouvé grep3c"
+   if debug1: print("ok trouvé grep3c")
  if pcre_uri23 and http_header08 and ( http_header08.lower() in pcre_uri23.lower() ):
   http_header08=""
-  if debug1: print "ok trouvé grep8a"
+  if debug1: print("ok trouvé grep8a")
  elif pcre_uri23 and http_header08 and ( '&' in http_header08 ):
   http_header08 = re.sub( r'\&', r'\\x26', http_header08 )
   if http_header08.lower() in pcre_uri23.lower():
    http_header08=""
-   if debug1: print "ok trouvé grep8b"
+   if debug1: print("ok trouvé grep8b")
  elif pcre_uri23 and http_header08 and ( '=' in http_header08 ):
   http_header08 = re.sub( r'\=', r'\\x3D', http_header08 )
   if http_header08.lower() in pcre_uri23.lower():
    http_header08=""
-   if debug1: print "ok trouvé grep8c"
+   if debug1: print("ok trouvé grep8c")
  if pcre_uri23 and http_uri13 and ( http_uri13.lower() in pcre_uri23.lower() ):
   http_uri13=""
-  if debug1: print "ok trouvé grep13a"
+  if debug1: print("ok trouvé grep13a")
  elif pcre_uri23 and http_uri13 and ( '&' in http_uri13 ):
   http_uri13 = re.sub( r'\&', r'\\x26', http_uri13 )
   if http_uri13.lower() in pcre_uri23.lower():
    http_uri13=""
-   if debug1: print "ok trouvé grep13b"
+   if debug1: print("ok trouvé grep13b")
  elif pcre_uri23 and http_uri13 and ( '=' in http_uri13 ):
   http_uri13 = re.sub( r'\=', r'\\x3D', http_uri13 )
   if http_uri13.lower() in pcre_uri23.lower():
    http_uri13=""
-   if debug1: print "ok trouvé grep13c"
+   if debug1: print("ok trouvé grep13c")
  if pcre_uri23 and http_header18 and ( http_header18.lower() in pcre_uri23.lower() ):
   http_header18=""
-  if debug1: print "ok trouvé grep18a"
+  if debug1: print("ok trouvé grep18a")
  elif pcre_uri23 and http_header18 and ( '&' in http_header18 ):
   http_header18 = re.sub( r'\&', r'\\x26', http_header18 )
   if http_header18.lower() in pcre_uri23.lower():
    http_header18=""
-   if debug1: print "ok trouvé grep18b"
+   if debug1: print("ok trouvé grep18b")
  elif pcre_uri23 and http_header18 and ( '=' in http_header18 ):
   http_header18 = re.sub( r'\=', r'\\x3D', http_header18 )
   if http_header18.lower() in pcre_uri23.lower():
    http_header18=""
-   if debug1: print "ok trouvé grep18c"
+   if debug1: print("ok trouvé grep18c")
 
  # one uri
  #$abc1= "$http_uri03" if $http_uri03 && !$http_uri13 && !$pcre_uri23;
@@ -2112,14 +2118,14 @@ def function_match_uriheader( lineet ):
  if http_headerfast36: httppcreagent_nocase=http_headerfast36
  if http_headernocase29: httppcreagent_nocase=http_headernocase29
 
- if debug1 and httpuricourt:   print "httpuricourt3: "+etmsg1+", "+httpuricourt.lower()
- if debug1 and tableauuri1:    print "httpurilong3: "+etmsg1+", "+str(tableauuri1)
- if debug1 and abc1:           print "tableaupcreuri3: "+etmsg1+", "+str((abc1, abc1_nocase))
- if debug1 and httppcreagent:  print "tableaupcreagent3: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase))
- if debug1 and httpagentshort: print "httpagentshort3: "+etmsg1+", "+httpagentshort.lower()
- if debug1 and http_method2:   print "tableauhttpmethod3: "+etmsg1+", "+str((http_method2, http_methodnocase3))
- if debug1 and httpreferer:    print "httpreferer3: "+etmsg1+", "+httpreferer
- if debug1 and pcrereferer:    print "tableaupcrereferer3: "+etmsg1+", "+pcrereferer
+ if debug1 and httpuricourt:   print("httpuricourt3: "+etmsg1+", "+httpuricourt.lower())
+ if debug1 and tableauuri1:    print("httpurilong3: "+etmsg1+", "+str(tableauuri1))
+ if debug1 and abc1:           print("tableaupcreuri3: "+etmsg1+", "+str((abc1, abc1_nocase)))
+ if debug1 and httppcreagent:  print("tableaupcreagent3: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase)))
+ if debug1 and httpagentshort: print("httpagentshort3: "+etmsg1+", "+httpagentshort.lower())
+ if debug1 and http_method2:   print("tableauhttpmethod3: "+etmsg1+", "+str((http_method2, http_methodnocase3)))
+ if debug1 and httpreferer:    print("httpreferer3: "+etmsg1+", "+httpreferer)
+ if debug1 and pcrereferer:    print("tableaupcrereferer3: "+etmsg1+", "+pcrereferer)
 
  if httpuricourt:   dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if httpagentshort: dict[(etmsg1, 'httpagentshort')] = httpagentshort.lower()
@@ -2135,7 +2141,7 @@ def function_match_uriheader( lineet ):
 #######################################################################################
 
 def function_match_http_header( lineet ):
- if debug1: print "brut4: "+lineet
+ if debug1: print("brut4: "+lineet)
  etmsg1 = match_http_header2.group(1)
  http_method2 = 0
  http_methodnocase3 = 0
@@ -2733,82 +2739,82 @@ def function_match_http_header( lineet ):
 
  if pcre_agent34 and http_header03 and ( http_header03.lower() in pcre_agent34.lower() ):
   http_header03=""
-  if debug1: print "ok trouvé grep3a"
+  if debug1: print("ok trouvé grep3a")
  elif pcre_agent34 and http_header03 and ( '&' in http_header03 ):
   http_header03 = re.sub( r'\&', r'\\x26', http_header03 )
   if http_header03.lower() in pcre_agent34.lower():
    http_header03=""
-   if debug1: print "ok trouvé grep3b"
+   if debug1: print("ok trouvé grep3b")
  elif pcre_agent34 and http_header03 and ( '=' in http_header03 ):
   http_header03 = re.sub( r'\=', r'\\x3D', http_header03 )
   if http_header03.lower() in pcre_agent34.lower():
    http_header03=""
-   if debug1: print "ok trouvé grep3c"
+   if debug1: print("ok trouvé grep3c")
  if pcre_uri33 and http_uri08 and ( http_uri08.lower() in pcre_uri33.lower() ):
   http_uri08=""
-  if debug1: print "ok trouvé grep8a"
+  if debug1: print("ok trouvé grep8a")
  elif pcre_uri33 and http_uri08 and ( '&' in http_uri08 ):
   http_uri08 = re.sub( r'\&', r'\\x26', http_uri08 )
   if http_uri08.lower() in pcre_uri33.lower():
    http_uri08=""
-   if debug1: print "ok trouvé grep8b"
+   if debug1: print("ok trouvé grep8b")
  elif pcre_uri33 and http_uri08 and ( '=' in http_uri08 ):
   http_uri08 = re.sub( r'\=', r'\\x3D', http_uri08 )
   if http_uri08.lower() in pcre_uri33.lower():
    http_uri08=""
-   if debug1: print "ok trouvé grep8c"
+   if debug1: print("ok trouvé grep8c")
  if pcre_agent34 and http_header13 and ( http_header13.lower() in pcre_agent34.lower() ):
   http_header13=""
-  if debug1: print "ok trouvé grep13a"
+  if debug1: print("ok trouvé grep13a")
  elif pcre_agent34 and http_header13 and ( '&' in http_header13 ):
   http_header13 = re.sub( r'\&', r'\\x26', http_header13 )
   if http_header13.lower() in pcre_agent34.lower():
    http_header13=""
-   if debug1: print "ok trouvé grep13b"
+   if debug1: print("ok trouvé grep13b")
  elif pcre_agent34 and http_header13 and ( '=' in http_header13 ):
   http_header13 = re.sub( r'\=', r'\\x3D', http_header13 )
   if http_header13.lower() in pcre_agent34.lower():
    http_header13=""
-   if debug1: print "ok trouvé grep13c"
+   if debug1: print("ok trouvé grep13c")
  if pcre_uri33 and http_uri18 and ( http_uri18.lower() in pcre_uri33.lower() ):
   http_uri18=""
-  if debug1: print "ok trouvé grep18a"
+  if debug1: print("ok trouvé grep18a")
  elif pcre_uri33 and http_uri18 and ( '&' in http_uri18 ):
   http_uri18 = re.sub( r'\&', r'\\x26', http_uri18 )
   if http_uri18.lower() in pcre_uri33.lower():
    http_uri18=""
-   if debug1: print "ok trouvé grep18b"
+   if debug1: print("ok trouvé grep18b")
  elif pcre_uri33 and http_uri18 and ( '=' in http_uri18 ):
   http_uri18 = re.sub( r'\=', r'\\x3D', http_uri18 )
   if http_uri18.lower() in pcre_uri33.lower():
    http_uri18=""
-   if debug1: print "ok trouvé grep18c"
+   if debug1: print("ok trouvé grep18c")
  if pcre_agent34 and http_header23 and ( http_header23.lower() in pcre_agent34.lower() ):
   http_header23=""
-  if debug1: print "ok trouvé grep23a"
+  if debug1: print("ok trouvé grep23a")
  elif pcre_agent34 and http_header23 and ( '&' in http_header23 ):
   http_header23 = re.sub( r'\&', r'\\x26', http_header23 )
   if http_header23.lower() in pcre_agent34.lower():
    http_header23=""
-   if debug1: print "ok trouvé grep23b"
+   if debug1: print("ok trouvé grep23b")
  elif pcre_agent34 and http_header23 and ( '=' in http_header23 ):
   http_header23 = re.sub( r'\=', r'\\x3D', http_header23 )
   if http_header23.lower() in pcre_agent34.lower():
    http_header23=""
-   if debug1: print "ok trouvé grep23c"
+   if debug1: print("ok trouvé grep23c")
  if pcre_uri33 and http_uri28 and ( http_uri28.lower() in pcre_uri33.lower() ):
   http_uri28=""
-  if debug1: print "ok trouvé grep28a"
+  if debug1: print("ok trouvé grep28a")
  elif pcre_uri33 and http_uri28 and ( '&' in http_uri28 ):
   http_uri28 = re.sub( r'\&', r'\\x26', http_uri28 )
   if http_uri28.lower() in pcre_uri33.lower():
    http_uri28=""
-   if debug1: print "ok trouvé grep28b"
+   if debug1: print("ok trouvé grep28b")
  elif pcre_uri33 and http_uri28 and ( '=' in http_uri28 ):
   http_uri28 = re.sub( r'\=', r'\\x3D', http_uri28 )
   if http_uri28.lower() in pcre_uri33.lower():
    http_uri28=""
-   if debug1: print "ok trouvé grep28c"
+   if debug1: print("ok trouvé grep28c")
 
  # one header
  if http_header03 and not http_header13 and not http_header23 and not pcre_agent34 and re.search( r'(?:\\|\^|\$)', http_header03 ): httppcreagent = http_header03
@@ -2913,20 +2919,20 @@ def function_match_http_header( lineet ):
   tempopcreagent = httppcreagent
   tempopcreagent = re.sub( r'\\(?!$)(?!x[a-f0-9]{2})', r'', tempopcreagent )
   if httpagentshort == tempopcreagent:
-   if debug1: print "tempopcreagent: "+tempopcreagent
+   if debug1: print("tempopcreagent: "+tempopcreagent)
    httppcreagent=0
    tempopcreagent=0
 
- if debug1 and httpuricourt:   print "httpuricourt4: "+etmsg1+", "+httpuricourt.lower()
- if debug1 and tableauuri1:    print "httpurilong4: "+etmsg1+", "+str(tableauuri1)
- if debug1 and abc1:           print "tableaupcreuri4: "+etmsg1+", "+str((abc1, abc1_nocase))
- if debug1 and httppcreagent:  print "tableaupcreagent4: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase))
- if debug1 and httpagentshort: print "httpagentshort4: "+etmsg1+", "+httpagentshort.lower()
- if debug1 and http_method2:   print "tableauhttpmethod4: "+etmsg1+", "+str((http_method2, http_methodnocase3))
- if debug1 and httpreferer:    print "httpreferer4: "+etmsg1+", "+httpreferer.lower()
- if debug1 and pcrereferer:    print "tableaupcrereferer4: "+etmsg1+", "+pcrereferer
- if debug1 and http_cookie:    print "tableauhttpcookie4: "+etmsg1+", "+str((http_cookie, http_cookie_nocase))
- if debug1 and cookiepcre:     print "tableaupcrecookie4: "+etmsg1+", "+cookiepcre
+ if debug1 and httpuricourt:   print("httpuricourt4: "+etmsg1+", "+httpuricourt.lower())
+ if debug1 and tableauuri1:    print("httpurilong4: "+etmsg1+", "+str(tableauuri1))
+ if debug1 and abc1:           print("tableaupcreuri4: "+etmsg1+", "+str((abc1, abc1_nocase)))
+ if debug1 and httppcreagent:  print("tableaupcreagent4: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase)))
+ if debug1 and httpagentshort: print("httpagentshort4: "+etmsg1+", "+httpagentshort.lower())
+ if debug1 and http_method2:   print("tableauhttpmethod4: "+etmsg1+", "+str((http_method2, http_methodnocase3)))
+ if debug1 and httpreferer:    print("httpreferer4: "+etmsg1+", "+httpreferer.lower())
+ if debug1 and pcrereferer:    print("tableaupcrereferer4: "+etmsg1+", "+pcrereferer)
+ if debug1 and http_cookie:    print("tableauhttpcookie4: "+etmsg1+", "+str((http_cookie, http_cookie_nocase)))
+ if debug1 and cookiepcre:     print("tableaupcrecookie4: "+etmsg1+", "+cookiepcre)
 
  if httpuricourt:   dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if httpagentshort: dict[(etmsg1, 'httpagentshort')] = httpagentshort.lower()
@@ -2944,7 +2950,7 @@ def function_match_http_header( lineet ):
 #######################################################################################
 
 def function_match_http_cookie( lineet ):
- if debug1: print "brut5: "+lineet
+ if debug1: print("brut5: "+lineet)
  etmsg1 = match_http_cookie2.group(1)
  http_method2 = 0
  http_methodnocase3 = 0
@@ -3039,17 +3045,17 @@ def function_match_http_cookie( lineet ):
 
  if pcre_uri13 and http_uri03 and ( http_uri03.lower() in pcre_uri13.lower() ):
   http_uri03=""
-  if debug1: print "ok trouvé grep3a"
+  if debug1: print("ok trouvé grep3a")
  elif pcre_uri13 and http_uri03 and ( '&' in http_uri03 ):
   http_uri03 = re.sub( r'\&', r'\\x26', http_uri03 )
   if http_uri03.lower() in pcre_uri13.lower():
    http_uri03=""
-   if debug1: print "ok trouvé grep3b"
+   if debug1: print("ok trouvé grep3b")
  elif pcre_uri13 and http_uri03 and ( '=' in http_uri03 ):
   http_uri03 = re.sub( r'\=', r'\\x3D', http_uri03 )
   if http_uri03.lower() in pcre_uri13.lower():
    http_uri03=""
-   if debug1: print "ok trouvé grep3c"
+   if debug1: print("ok trouvé grep3c")
 
  if http_uri03 and not pcre_uri13: abc1 = http_uri03
  if pcre_uri13 and not http_uri03: abc1 = pcre_uri13
@@ -3059,7 +3065,7 @@ def function_match_http_cookie( lineet ):
   tempopcreuri = abc1
   tempopcreuri = re.sub( r'\\(?!$)(?!x[a-f0-9]{2})', r'', tempopcreuri )
   if httpuricourt == tempopcreuri:
-   if debug1: print "tempopcreuri: "+tempopcreuri
+   if debug1: print("tempopcreuri: "+tempopcreuri)
    abc1=0
    tempopcreuri=0
 
@@ -3070,11 +3076,11 @@ def function_match_http_cookie( lineet ):
  if http_cookienocase12: http_cookie_nocase=http_cookienocase12
  if http_cookienocase15: http_cookie_nocase=http_cookienocase15
 
- if debug1 and httpuricourt:   print "httpuricourt5: "+etmsg1+", "+httpuricourt.lower()
- if debug1 and abc1:           print "tableaupcreuri5: "+etmsg1+", "+str((abc1, abc1_nocase))
- if debug1 and http_method2:   print "tableauhttpmethod5: "+etmsg1+", "+str((http_method2, http_methodnocase3))
- if debug1 and http_cookie:    print "tableauhttpcookie5: "+etmsg1+", "+str((http_cookie, http_cookie_nocase))
- if debug1 and cookiepcre:     print "tableaupcrecookie5: "+etmsg1+", "+cookiepcre
+ if debug1 and httpuricourt:   print("httpuricourt5: "+etmsg1+", "+httpuricourt.lower())
+ if debug1 and abc1:           print("tableaupcreuri5: "+etmsg1+", "+str((abc1, abc1_nocase)))
+ if debug1 and http_method2:   print("tableauhttpmethod5: "+etmsg1+", "+str((http_method2, http_methodnocase3)))
+ if debug1 and http_cookie:    print("tableauhttpcookie5: "+etmsg1+", "+str((http_cookie, http_cookie_nocase)))
+ if debug1 and cookiepcre:     print("tableaupcrecookie5: "+etmsg1+", "+cookiepcre)
 
  if httpuricourt:   dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if abc1:           dict[(etmsg1, 'pcreuri')] = (abc1, abc1_nocase)
@@ -3090,11 +3096,11 @@ def function_match_http_cookie( lineet ):
 #######################################################################################
 
 def function_match_ip( lineet ):
- if debug1: print "brut6: "+lineet
+ if debug1: print("brut6: "+lineet)
  etmsg1 = match_ip2.group(2)
  remote_ip = match_ip2.group(1)
 
- if debug1 and remote_ip:   print "remoteip6: "+etmsg1+", "+remote_ip
+ if debug1 and remote_ip:   print("remoteip6: "+etmsg1+", "+remote_ip)
 
  if remote_ip:   dict[(etmsg1, 'remoteip')] = remote_ip
 
@@ -3105,6 +3111,8 @@ def function_match_ip( lineet ):
 #######################################################################################
 
 for lineet in fileemergingthreats:
+ if sys.version_info>=(3,):
+  lineet = bytes.decode( lineet ) # new Python v3
  lineet = lineet.rstrip('\r\n')
  match_http_uri2 = match_http_uri1.match( lineet )
  match_uricontent2 = match_uricontent1.match( lineet )
@@ -3154,18 +3162,18 @@ for lineet in fileemergingthreats:
   function_match_ip( lineet )
 
  else:
-  if debug1: print "erreur parsing signature: "+lineet
+  if debug1: print("erreur parsing signature: "+lineet)
 
 fileemergingthreats.close()
 
 ####################################################################################################
-if debug1: print "####################################################################################"
+if debug1: print("####################################################################################")
 
 def function_logsandsearch( looplogs):
  looplogs = looplogs.strip('\n')
  output_escape = looplogs
  #$output_escape = printable($_);
- if debug2: print "rawproxy: "+output_escape
+ if debug2: print("rawproxy: "+output_escape)
 
  timestamp_central=0; server_hostname_ip=0; timestamp_unix=0; client_hostname_ip=0; client_username=0; http_reply_code=0; client_http_method=0; client_http_uri=0; web_hostname_ip=0; client_http_useragent=0; client_http_referer=0; client_http_cookie=0; server_remote_ip=0;
 
@@ -3179,7 +3187,7 @@ def function_logsandsearch( looplogs):
  mcafeewg2 = mcafeewg1.search( output_escape )
 
  if re.search( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(?:\#Software\: |\#Version\: |\#Start-Date\: |\#Date\: |\#Fields\: |\#Remark\: )', output_escape):
-  if debug2: print "bypass BlueCoat header."
+  if debug2: print("bypass BlueCoat header.")
 
 # Squid default conf:
 #2012-11-10T16:33:21.030867+01:00 hostname programname: 1352538457.034     79 192.168.2.3 TCP_MISS/200 2141 POST http://safe.google.com/downloads? - DIRECT/173.194.34.1 application/vnd.google.safe-update
@@ -3195,7 +3203,7 @@ def function_logsandsearch( looplogs):
   timestamp_central=squiddefault2.group(1); server_hostname_ip=squiddefault2.group(2); timestamp_unix=squiddefault2.group(3); client_hostname_ip=squiddefault2.group(4); http_reply_code=squiddefault2.group(5); client_http_method=squiddefault2.group(6); client_http_uri=squiddefault2.group(7); web_hostname_ip=squiddefault2.group(8);
   if not squiddefault2.group(1): timestamp_central="N/A"
   if not squiddefault2.group(2): server_hostname_ip="N/A"
-  if debug2: print "passage dans squid default regexp."
+  if debug2: print("passage dans squid default regexp.")
   client_username=0
 
 
@@ -3215,7 +3223,7 @@ def function_logsandsearch( looplogs):
   timestamp_central=squidua2.group(1); server_hostname_ip=squidua2.group(2); client_hostname_ip=squidua2.group(3); http_reply_code=squidua2.group(4); timestamp_unix=squidua2.group(5); client_http_method=squidua2.group(6); client_http_uri=squidua2.group(7); web_hostname_ip=squidua2.group(8); client_http_useragent=squidua2.group(9); client_http_referer=squidua2.group(10); client_http_cookie=squidua2.group(11); server_remote_ip=squidua2.group(12);
   if not squidua2.group(1): timestamp_central="N/A"
   if not squidua2.group(2): server_hostname_ip="N/A"
-  if debug2: print "passage dans squid added User-Agent regexp."
+  if debug2: print("passage dans squid added User-Agent regexp.")
   client_username=0
 
 
@@ -3230,10 +3238,12 @@ def function_logsandsearch( looplogs):
 # apache logs:
 # 127.0.0.1 - - [05/Dec/2014:10:33:40 +0100] "GET /linux/ HTTP/1.1" 200 3713 "http://localhost/" "Mozilla/5.0 (X11; Linux x86_64; rv:31.0) Gecko/20100101 Firefox/31.0" "cookie=1"
 #
+# 1.1.1.1 - user [23/Mar/2014:07:41:08 +0100] "GET http://test.com/ont.woff HTTP/1.1" 200 27533 "http://www.referer.com/style.css" "Mozilla/5.0 (Windows NT 5.1; rv:27.0) Gecko/20100101 Firefox/27.0" TCP_MEM_HIT:HIER_NONE text/plain 261 - - "URL category ALL is ALLOWED"
+#
  elif apache2:
-  timestamp_central=apache2.group(1); server_hostname_ip=apache2.group(2); client_hostname_ip=apache2.group(3); timestamp_unix=apache2.group(4); client_http_method=apache2.group(5); client_http_uri=apache2.group(6); http_reply_code=apache2.group(7); client_http_referer=apache2.group(8); client_http_useragent=apache2.group(9); client_http_cookie=apache2.group(10);
-  if debug2: print "passage dans Apache User-Agent regexp."
-  client_username=0
+  timestamp_central=apache2.group(1); server_hostname_ip=apache2.group(2); client_hostname_ip=apache2.group(3); client_username=apache2.group(4); timestamp_unix=apache2.group(5); client_http_method=apache2.group(6); client_http_uri=apache2.group(7); http_reply_code=apache2.group(8); client_http_referer=apache2.group(9); client_http_useragent=apache2.group(10); client_http_cookie=apache2.group(11);
+  if debug2: print("passage dans Apache User-Agent regexp.")
+  if apache2.group(4) == "-": client_username=0
 
 
 # log proxy TMG/FOREFRONT:
@@ -3248,7 +3258,7 @@ def function_logsandsearch( looplogs):
   # https/ssl-tunnel:
   if client_http_uri == "-" and tmg2.group(8) != "-":
    client_http_uri=tmg2.group(8)
-  if debug2: print "passage dans TMG/ForeFront regexp."
+  if debug2: print("passage dans TMG/ForeFront regexp.")
 
 
 # log proxy BlueCoat sans http_method:
@@ -3270,7 +3280,7 @@ def function_logsandsearch( looplogs):
    client_http_uri=bluecoat1a.group(8)+":\/\/"+bluecoat1a.group(9)+bluecoat1a.group(11)
   elif bluecoat1a.group(12) == "-" and bluecoat1a.group(8) == "tcp":
    client_http_uri=bluecoat1a.group(9)+bluecoat1a.group(11)
-  if debug2: print "passage dans BlueCoat 1 sans http_method regexp."
+  if debug2: print("passage dans BlueCoat 1 sans http_method regexp.")
 
 
 # log proxy BlueCoat avec http_method:
@@ -3289,7 +3299,7 @@ def function_logsandsearch( looplogs):
    client_http_uri=bluecoatmethod2a.group(9)+":\/\/"+bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)
   elif bluecoatmethod2a.group(13) == "-" and bluecoatmethod2a.group(9) == "tcp":
    client_http_uri=bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)
-  if debug2: print "passage dans BlueCoat 2 avec http_method regexp."
+  if debug2: print("passage dans BlueCoat 2 avec http_method regexp.")
 
 
 # Format MAIN SGOS v6.5.5.5
@@ -3306,7 +3316,7 @@ def function_logsandsearch( looplogs):
    client_http_uri=bluecoatmethod3a.group(7)+":\/\/"+bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)
   elif bluecoatmethod3a.group(11) == "-" and bluecoatmethod3a.group(7) == "tcp":
    client_http_uri=bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)
-  if debug2: print "passage dans BlueCoat 3 avec http_method regexp."
+  if debug2: print("passage dans BlueCoat 3 avec http_method regexp.")
 
 
 # log proxy McAfee WebGateway default v7.2.x (missing Referer and Cookie)
@@ -3318,14 +3328,14 @@ def function_logsandsearch( looplogs):
   server_hostname_ip=mcafeewg2.group(1); timestamp_central=mcafeewg2.group(2); client_username=mcafeewg2.group(3); client_hostname_ip=mcafeewg2.group(4); http_reply_code=mcafeewg2.group(5); client_http_method=mcafeewg2.group(6); client_http_uri=mcafeewg2.group(7); client_http_useragent=mcafeewg2.group(8);
   if not mcafeewg2.group(8):
    client_http_useragent="-"
-  if debug2: print "passage dans McAfee default regexp."
+  if debug2: print("passage dans McAfee default regexp.")
 
 
  else:
   if args.s:
    syslog.sendall( socketgethostname+" etplc: aucun parser ne correspond au motif !!! "+output_escape)
   else:
-   print "aucun parser ne correspond au motif !!! "+output_escape
+   print("aucun parser ne correspond au motif !!! "+output_escape)
 
  if timestamp_central and debug2: sys.stdout.write( "timestamp_central: "+timestamp_central )
  if server_hostname_ip and debug2: sys.stdout.write( ", server_hostname_ip: "+server_hostname_ip )
@@ -3350,17 +3360,17 @@ def function_logsandsearch( looplogs):
   while '%' in client_http_uri:
    countloop += 1
    client_http_uri=urllib.unquote(client_http_uri)
-   if debug2: print "unescape: "+client_http_uri
+   if debug2: print("unescape: "+client_http_uri)
    if countloop>4: break
   if '\x00' in client_http_uri:
    client_http_uri=re.sub( r'\x00', r'%00', client_http_uri )
-   if debug2: print "ok found null byte"
+   if debug2: print("ok found null byte")
   if '\x0d' in client_http_uri:
    client_http_uri=re.sub( r'\x0d', r'%0D', client_http_uri )
-   if debug2: print "ok found cr byte"
+   if debug2: print("ok found cr byte")
   if '\x0a' in client_http_uri:
    client_http_uri=re.sub( r'\x0a', r'%0A', client_http_uri )
-   if debug2: print "ok found lf byte"
+   if debug2: print("ok found lf byte")
 
 ####################################################################################################
 
@@ -3387,23 +3397,23 @@ def function_logsandsearch( looplogs):
    paslememe=0
    values=dict[etmsg,clef]
 
-   if debug2: print "---------------"
-   if debug2: print "hash0 etmsg: "+etmsg+", clef: "+clef+", values: "+str(values)
-   if jump and debug2: print "ok jump"
+   if debug2: print("---------------")
+   if debug2: print("hash0 etmsg: "+etmsg+", clef: "+clef+", values: "+str(values))
+   if jump and debug2: print("ok jump")
 
    if etmsg_old == etmsg and jump:
-    if debug2: print "ok c'est le meme et jump"
+    if debug2: print("ok c'est le meme et jump")
     next
    #if etmsg_old == etmsg:
    # print "ok c'est le meme"
     #next
    if etmsg_old and etmsg_old != etmsg:
-    if debug2: print "ok ce n'est pas le meme"
+    if debug2: print("ok ce n'est pas le meme")
     jump=0 # required here for global variables
     paslememe=1
 
    if paslememe and not jump and ( foundmethod or founduricourt or foundurilong or foundurilongdistance or foundagent or foundreferer or foundpcrereferer or foundpcreagent or foundcookie or foundpcrecookie or foundpcreuri or foundremoteip ):
-    if debug2: print "ok ici10"
+    if debug2: print("ok ici10")
     alertetplc = "ok trouvé: "
     if timestamp_central:     alertetplc += "timestamp: "+timestamp_central+", "
     if server_hostname_ip:    alertetplc += "server_hostname_ip: "+server_hostname_ip+", "
@@ -3451,18 +3461,18 @@ def function_logsandsearch( looplogs):
     foundremoteip=0
 
    etmsg_old=etmsg
-   if debug2: print "hash2 etmsg: "+etmsg+", clef: "+clef+", values: "+str(values)
+   if debug2: print("hash2 etmsg: "+etmsg+", clef: "+clef+", values: "+str(values))
 
    if clef == "httpmethod" and not jump:
-    if debug2: print "ok ici1"
+    if debug2: print("ok ici1")
     if client_http_method and (values[1] == "nocase" or values[1] == "fast_pattern") and values[0].lower() in client_http_method.lower():
-     if debug2: print "ici1a: "+values[0]
+     if debug2: print("ici1a: "+values[0])
      foundmethod=values[0]
     elif client_http_method and values[0] in client_http_method:
-     if debug2: print "ici1b: "+values[0]
+     if debug2: print("ici1b: "+values[0])
      foundmethod=values[0]
     elif values[0]:
-     if debug2: print "method not found: jump ("+values[0]+")"
+     if debug2: print("method not found: jump ("+values[0]+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3479,12 +3489,12 @@ def function_logsandsearch( looplogs):
      next
 
    elif clef == "httpuricourt" and not jump:
-    if debug2: print "ok ici2"
+    if debug2: print("ok ici2")
     if client_http_uri and values in client_http_uri.lower():
-     if debug2: print "ici2: "+values
+     if debug2: print("ici2: "+values)
      founduricourt=values
     elif values:
-     if debug2: print "urishort not found: jump ("+values+")"
+     if debug2: print("urishort not found: jump ("+values+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3501,13 +3511,13 @@ def function_logsandsearch( looplogs):
      next
 
    elif clef == "httpurilong" and not jump:
-    if debug2: print "ok ici3"
+    if debug2: print("ok ici3")
     foundurilong=str(values)
     for abc in values:
      if not jump and client_http_uri and abc in client_http_uri.lower():
-      if debug2: print "ici3: "+abc
+      if debug2: print("ici3: "+abc)
      elif not jump: # out on first jump
-      if debug2: print "uri not found: jump ("+abc+")"
+      if debug2: print("uri not found: jump ("+abc+")")
       jump=1
       foundmethod=0
       founduricourt=0
@@ -3524,13 +3534,13 @@ def function_logsandsearch( looplogs):
       next
 
    elif clef == "httpurilongdistance" and not jump:
-    if debug2: print "ok ici9"
+    if debug2: print("ok ici9")
     foundurilongdistance=str(values)
     for abc in values:
      if not jump and client_http_uri and abc in client_http_uri.lower():
-      if debug2: print "ici9: "+abc
+      if debug2: print("ici9: "+abc)
      elif not jump: # out on first jump
-      if debug2: print "uri distance not found: jump ("+abc+")"
+      if debug2: print("uri distance not found: jump ("+abc+")")
       jump=1
       foundmethod=0
       founduricourt=0
@@ -3547,12 +3557,12 @@ def function_logsandsearch( looplogs):
       next
 
    elif clef == "httpagentshort" and not jump:
-    if debug2: print "ok ici4"
+    if debug2: print("ok ici4")
     if client_http_useragent and values in client_http_useragent.lower():
-     if debug2: print "ici4: "+values
+     if debug2: print("ici4: "+values)
      foundagent=values
     elif values:
-     if debug2: print "agent not found: jump ("+values+")"
+     if debug2: print("agent not found: jump ("+values+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3569,12 +3579,12 @@ def function_logsandsearch( looplogs):
      next
 
    elif clef == "httpreferer" and not jump:
-    if debug2: print "ok ici10"
+    if debug2: print("ok ici10")
     if client_http_referer and values in client_http_referer.lower():
-     if debug2: print "ici10a: "+values
+     if debug2: print("ici10a: "+values)
      foundreferer=values
     elif values:
-     if debug2: print "httpreferer not found: jump ("+values+")"
+     if debug2: print("httpreferer not found: jump ("+values+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3591,15 +3601,15 @@ def function_logsandsearch( looplogs):
      next
 
    elif clef == "httpcookie" and not jump:
-    if debug2: print "ok ici11"
+    if debug2: print("ok ici11")
     if client_http_cookie and (values[1] == "nocase" or values[1] == "fast_pattern") and values[0].lower() in client_http_cookie.lower():
-     if debug2: print "ici11a: "+values[0]
+     if debug2: print("ici11a: "+values[0])
      foundcookie=values[0]
     elif client_http_cookie and values[0] in client_http_cookie:
-     if debug2: print "ici11b: "+values[0]
+     if debug2: print("ici11b: "+values[0])
      foundcookie=values[0]
     elif values[0]:
-     if debug2: print "cookie not found: jump ("+values[0]+")"
+     if debug2: print("cookie not found: jump ("+values[0]+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3616,15 +3626,15 @@ def function_logsandsearch( looplogs):
      next
 
    elif clef == "pcrereferer" and not jump:
-    if debug2: print "ok ici5"
+    if debug2: print("ok ici5")
     if values and '^\-$' == values:
-     if debug2: print "ici5b: "+values
+     if debug2: print("ici5b: "+values)
      foundpcrereferer=values
     elif client_http_referer and re.search( r''+values, client_http_referer, re.I ):
-     if debug2: print "ici5a: "+values
+     if debug2: print("ici5a: "+values)
      foundpcrereferer=values
     elif values:
-     if debug2: print "pcrereferer not found: jump ("+values+")"
+     if debug2: print("pcrereferer not found: jump ("+values+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3641,17 +3651,17 @@ def function_logsandsearch( looplogs):
      next
 
    elif clef == "pcreagent" and not jump:
-    if debug2: print "ok ici6"
+    if debug2: print("ok ici6")
     if values and '^\-$' == values[0]:
-     if debug2: print "ici6c: "+values
+     if debug2: print("ici6c: "+values)
     elif client_http_useragent and (values[1] == "nocase" or values[1] == "fast_pattern") and re.search( r''+values[0], client_http_useragent, re.I ):
-     if debug2: print "ici6a: "+values[0]
+     if debug2: print("ici6a: "+values[0])
      foundpcreagent=values[0]
     elif client_http_useragent and (values[1] != "nocase" or values[1] != "fast_pattern") and re.search( r''+values[0], client_http_useragent ):
-     if debug2: print "ici6b: "+values[0]
+     if debug2: print("ici6b: "+values[0])
      foundpcreagent=values[0]
     elif values[0]:
-     if debug2: print "pcreagent not found: jump ("+values[0]+")"
+     if debug2: print("pcreagent not found: jump ("+values[0]+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3668,12 +3678,12 @@ def function_logsandsearch( looplogs):
      next
 
    elif clef == "pcrecookie" and not jump:
-    if debug2: print "ok ici7"
+    if debug2: print("ok ici7")
     if client_http_cookie and values and re.search( r''+values, client_http_cookie, re.I ):
-     if debug2: print "ici7: "+values
+     if debug2: print("ici7: "+values)
      foundpcrecookie=values
     elif values:
-     if debug2: print "pcrecookie not found: jump ("+values+")"
+     if debug2: print("pcrecookie not found: jump ("+values+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3690,15 +3700,15 @@ def function_logsandsearch( looplogs):
      next
 
    elif clef == "pcreuri" and not jump:
-    if debug2: print "ok ici8"
+    if debug2: print("ok ici8")
     if client_http_uri and (values[1] == "nocase" or values[1] == "fast_pattern") and re.search( r''+values[0], client_http_uri, re.I ):
-     if debug2: print "ici8a: "+values[0]
+     if debug2: print("ici8a: "+values[0])
      foundpcreuri=values[0]
     elif client_http_uri and (values[1] != "nocase" or values[1] != "fast_pattern") and re.search( r''+values[0], client_http_uri ): 
-     if debug2: print "ici8b: "+values[0]
+     if debug2: print("ici8b: "+values[0])
      foundpcreuri=values[0]
     elif values[0]:
-     if debug2: print "pcreuri not found: jump ("+values[0]+")"
+     if debug2: print("pcreuri not found: jump ("+values[0]+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3715,12 +3725,12 @@ def function_logsandsearch( looplogs):
      next
 
    elif clef == "remoteip" and not jump:
-    if debug2: print "ok ici12"
+    if debug2: print("ok ici12")
     if server_remote_ip and values and values == server_remote_ip:
-     if debug2: print "ici12a: "+values
+     if debug2: print("ici12a: "+values)
      foundremoteip=values
     elif values[0]:
-     if debug2: print "remoteip not found: jump ("+values+")"
+     if debug2: print("remoteip not found: jump ("+values+")")
      jump=1
      foundmethod=0
      founduricourt=0
