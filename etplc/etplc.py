@@ -67,7 +67,7 @@ syslog = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)   # udp
 
 ####################################################################################################
 
-argtext='==================================================\nETPLC (Emerging Threats Proxy Logs Checker)\nCheck your Proxy or WebServer Logs with Emerging Threats Community Ruleset.\nhttp://etplc.org - Twitter: @Rmkml\n\nExample: tail -f /var/log/messages | python etplc.py -f abc.rules.gz\n=================================================='
+argtext='==================================================\nETPLC (Emerging Threats Proxy Logs Checker)\nCheck your Proxy or WebServer Logs with Emerging Threats Community Ruleset.\nhttp://etplc.org - Twitter: @Rmkml\n\nExample: tail -f /var/log/messages | etplc.py -f abc.rules.gz\n=================================================='
 parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter, description=argtext)
 parser.add_argument("-f", help="Specify Emerging Threats file Community Ruleset")
 parser.add_argument("-s", help="Enable syslog alerting", action="store_true")
