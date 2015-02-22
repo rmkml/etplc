@@ -18,6 +18,7 @@
 # Contact: rmkml@yahoo.fr
 
 # ChangeLog:
+# 18fev2015: added IIS logs parser, thx Tecko
 #  9jan2015: merge python v2 and v3 and fix apache format logs, thx Alexandre
 # 28dec2014: add remote_ip bluecoat main format logs v6.5.5
 # 27dec2014: fix bluecoat main format logs v6.5.5, thx Damien
@@ -117,17 +118,15 @@ match_ip1 = re.compile( r'^\s*alert\s+ip\s+\S+\s+\S+\s+\-\>\s+(\d{1,3}\.\d{1,3}\
 
 ####################################################################################################
 
-#squiddefault1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)\s(\S+)\s\S+\:\s(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z]+\/(\S+)\s')
 squiddefault1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z\_]+\/(\S+)\s')
-#squidua1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\"([^\"]+)\" \"([^\"]+)\" \"([^\"]+)\"')
 squidua1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\"([^\"]+)\" \"([^\"]+)\" \"([^\"]+)\"(?:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?')
-#apache1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+\-\s+\[(.*?)\]\s+\"([^\s]+)\s([^\s]+)\s.*\"\s(\d+)\s(?:\d+|\-)(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?$')
 apache1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+(\S+)\s+\[([^\]]*?)\]\s+\"([^\s]+)\s(\S+)\s\S+\"\s(\d+)\s(?:\d+|\-)(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?')
 tmg1 = re.compile( r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)')
 bluecoat1c = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\"[^\"]*?\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?')
 bluecoatmethod2c = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\"[^\"]*?\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?')
 bluecoatmethod3c = re.compile( r'(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\d+)\s\S+\s\d+\s\d+\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\S+)\s(\S+)\s\S+\s\S+\s\S+\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\S+\s(?:\"(?:[^\"]*?)\"|(?:\-))\s(?:\"(?:[^\"]*?)\"|(?:\-))\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
 mcafeewg1 = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?\s*\[([^\]]*?)\] \"([^\"]*?)\" \"[^\"]*?\" (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (0|\d{3}) \"([^\s]+)\s([^\s]+)\s[^\"]*?\" \"[^\"]*?\" \"[^\"]*?\" \"[^\"]*?\" \d+ \"([^\"]*)\" \"[^\"]*?\" \S+ (?:\S+)?$')
+iismethod1 = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2} \d{2}\:\d{2}\:\d{2})\s(\S+)\s(\S+)\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(\S+)\s(\d+)\s\d+\s\d+\s\d+\s\d+\s\d+')
 
 ####################################################################################################
 
@@ -3185,9 +3184,10 @@ def function_logsandsearch( looplogs):
  bluecoatmethod2a = bluecoatmethod2c.search( output_escape )
  bluecoatmethod3a = bluecoatmethod3c.search( output_escape )
  mcafeewg2 = mcafeewg1.search( output_escape )
+ iismethod2 = iismethod1.search( output_escape )
 
  if re.search( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(?:\#Software\: |\#Version\: |\#Start-Date\: |\#Date\: |\#Fields\: |\#Remark\: )', output_escape):
-  if debug2: print("bypass BlueCoat header.")
+  if debug2: print("bypass BlueCoat/IIS headers.")
 
 # Squid default conf:
 #2012-11-10T16:33:21.030867+01:00 hostname programname: 1352538457.034     79 192.168.2.3 TCP_MISS/200 2141 POST http://safe.google.com/downloads? - DIRECT/173.194.34.1 application/vnd.google.safe-update
@@ -3329,6 +3329,25 @@ def function_logsandsearch( looplogs):
   if not mcafeewg2.group(8):
    client_http_useragent="-"
   if debug2: print("passage dans McAfee default regexp.")
+
+
+# log IIS webserver default v7.5 (missing Cookie)
+#Fields: date time s-sitename s-computername s-ip cs-method cs-uri-stem cs-uri-query s-port cs-username c-ip cs(User-Agent) cs(Referer) sc-status sc-substatus sc-win32-status sc-bytes cs-bytes time-taken
+# 2015-01-20 08:48:18 W3SVC NFOR 172.31.20.200 GET /_common/media/img/P_Niv3.gif - 80 - 10.94.210.10 Mozilla/5.0+(Windows+NT+6.1;+WOW64)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/39.0.2171.99+Safari/537.36 https://test.fr/_common/css/WDDesignns.css 304 0 0 210 909 15
+# 2015-01-23 15:45:19 W3SVC2 DOFR01 10.0.0.2 GET /download/downloadUrl.asp file=../../../../../../../etc/passwd 80 - 10.94.210.10 Mozilla/5.0+(X11;+Linux+x86_64)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/39.0.2171.95+Safari/537.36 - 200 0 0 195 847 31
+# 2015-01-23 15:50:53 W3SVC2 DOFR01 10.0.0.2 GET /download/downloadUrl.asp file=../../etc/passwd 80 - 10.94.210.10 Mozilla/5.0+(Macintosh;+Intel+Mac+OS+X+10_10_1)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/39.0.2171.95+Safari/537.36 - 200 0 0 195 818 15
+ elif iismethod2:
+  timestamp_central=iismethod2.group(2); server_hostname_ip=iismethod2.group(4); client_http_method=iismethod2.group(5); client_http_uri=":\/\/"+iismethod2.group(3)+iismethod2.group(6); client_username=iismethod2.group(9); client_hostname_ip=iismethod2.group(10); client_http_useragent=iismethod2.group(11); client_http_referer=iismethod2.group(12); http_reply_code=iismethod2.group(13);
+  if iismethod2.group(8) == "443":
+   client_http_uri="https"+client_http_uri
+  else:
+   client_http_uri="http"+client_http_uri
+  if not iismethod2.group(7) == "-":
+   client_http_uri=client_http_uri+"?"+iismethod2.group(7)
+  client_http_useragent = re.sub( r"\+", " ", client_http_useragent )
+  if client_username == "-":
+   client_username = ""
+  if debug2: print("passage dans IIS default regexp.")
 
 
  else:
@@ -3726,6 +3745,8 @@ def function_logsandsearch( looplogs):
 
    elif clef == "remoteip" and not jump:
     if debug2: print("ok ici12")
+    #if debug2: print("ok ici12u"+server_remote_ip)
+    if debug2: print("ok ici12v"+values)
     if server_remote_ip and values and values == server_remote_ip:
      if debug2: print("ici12a: "+values)
      foundremoteip=values
