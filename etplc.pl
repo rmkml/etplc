@@ -19,6 +19,7 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+# 18fev2015: added IIS logs parser, thx Tecko
 #  9jan2015: fix apache format logs, thx Alexandre
 #  6jan2015: use new Sys::Hostname perl module
 #  5jan2015: rewrite argument with Getopt::Long
@@ -2972,7 +2973,7 @@ my @threads = map threads->create(sub {
  print "rawproxy: $output_escape\n" if $debug2;
 
  if ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(?:\#Software\: |\#Version\: |\#Start-Date\: |\#Date\: |\#Fields\: |\#Remark\: )/ ) {
-  print "bypass BlueCoat header.\n" if $debug2;
+  print "bypass BlueCoat/IIS headers.\n" if $debug2;
  }
 
 # Squid default conf:
@@ -3006,7 +3007,7 @@ my @threads = map threads->create(sub {
 #2013-06-12T21:58:26.751411+02:00 hostname programname:   288 192.168.1.2 TCP_MISS/000 - [12/Jun/2013:21:58:23 +0200] 0 GET http://1.1.1.112/%67gu.php - DIRECT/1.1.1.112 - "Wget/1.13.4 (linux-gnu)" "-"
 # add cookie + remote_ip :
 # 2013-11-23T02:09:29.909623+01:00 hostname programname:   142 192.168.1.2 TCP_MISS/200 - [23/Nov/2013:02:09:22 +0100] 1890 GET http://etplc.org/ - HIER_DIRECT/etplc.org text/html "Wget/1.13.4 (linux-gnu)" "-" "fGGhTasdas=http" 8.8.8.8
- #elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\\\"([^\"]+)\\\" \\\"([^\"]+)\\\" \\\"([^\"]+)\\\"/ ) {
+
  elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\\\"([^\"]+)\\\" \\\"([^\"]+)\\\" \\\"([^\"]+)\\\"(?:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?/ ) {
   $timestamp_central=$1; $server_hostname_ip=$2; $client_hostname_ip=$3; $http_reply_code=$4; $timestamp_unix=$5; $client_http_method=$6; $client_http_uri=$7; $web_hostname_ip=$8; $client_http_useragent=$9; $client_http_referer=$10; $client_http_cookie=$11; $server_remote_ip=$12;
   $client_username="";
@@ -3028,9 +3029,8 @@ my @threads = map threads->create(sub {
 #
 # 1.1.1.1 - user [23/Mar/2014:07:41:08 +0100] "GET http://test.com/ont.woff HTTP/1.1" 200 27533 "http://www.referer.com/style.css" "Mozilla/5.0 (Windows NT 5.1; rv:27.0) Gecko/20100101 Firefox/27.0" TCP_MEM_HIT:HIER_NONE text/plain 261 - - "URL category ALL is ALLOWED"
 #
-#elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+\-\s+\[(.*?)\]\s+\\\"([^\s]+)\s([^\s]+)\s.*\\\"\s(\d+)\s(?:\d+|\-)(?:\s\\\"(.*?)\\\")?(?:\s\\\"(.*?)\\\")?(?:\s\\\"(.*?)\\\")?$/ ) {
+
  elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+(\S+)\s+\[([^\]]*?)\]\s+\\\"([^\s]+)\s(\S+)\s\S+\\\"\s(\d+)\s(?:\d+|\-)(?:\s\\\"(.*?)\\\")?(?:\s\\\"(.*?)\\\")?(?:\s\\\"(.*?)\\\")?/ ) {
-  #$timestamp_central=$1; $server_hostname_ip=$2; $client_hostname_ip=$3; $timestamp_unix=$4; $client_http_method=$5; $client_http_uri=$6; $http_reply_code=$7; $client_http_referer=$8; $client_http_useragent=$9; $client_http_cookie=$10;
   $timestamp_central=$1; $server_hostname_ip=$2; $client_hostname_ip=$3; $client_username=$4; $timestamp_unix=$5; $client_http_method=$6; $client_http_uri=$7; $http_reply_code=$8; $client_http_referer=$9; $client_http_useragent=$10; $client_http_cookie=$11;
   if( $client_username eq "-" ){ $client_username="" }
   print "passage dans Apache regexp.\n" if $debug2;
@@ -3108,6 +3108,23 @@ my @threads = map threads->create(sub {
   $server_hostname_ip=$1; $timestamp_central=$2; $client_username=$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri=$7; $client_http_useragent=$8;
   unless( $client_http_useragent ) { $client_http_useragent="-" }
   print "passage dans McAfee default regexp.\n" if $debug2;
+ }
+
+
+# log IIS webserver default v7.5 (missing Cookie)
+#Fields: date time s-sitename s-computername s-ip cs-method cs-uri-stem cs-uri-query s-port cs-username c-ip cs(User-Agent) cs(Referer) sc-status sc-substatus sc-win32-status sc-bytes cs-bytes time-taken
+# 2015-01-20 08:48:18 W3SVC NFOR 172.31.20.200 GET /_common/media/img/P_Niv3.gif - 80 - 10.94.210.10 Mozilla/5.0+(Windows+NT+6.1;+WOW64)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/39.0.2171.99+Safari/537.36 https://test.fr/_common/css/WDDesignns.css 304 0 0 210 909 15
+# 2015-01-23 15:45:19 W3SVC2 DOFR01 10.0.0.2 GET /download/downloadUrl.asp file=../../../../../../../etc/passwd 80 - 10.94.210.10 Mozilla/5.0+(X11;+Linux+x86_64)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/39.0.2171.95+Safari/537.36 - 200 0 0 195 847 31
+# 2015-01-23 15:50:53 W3SVC2 DOFR01 10.0.0.2 GET /download/downloadUrl.asp file=../../etc/passwd 80 - 10.94.210.10 Mozilla/5.0+(Macintosh;+Intel+Mac+OS+X+10_10_1)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/39.0.2171.95+Safari/537.36 - 200 0 0 195 818 15
+
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2} \d{2}\:\d{2}\:\d{2})\s(\S+)\s(\S+)\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(\S+)\s(\d+)\s\d+\s\d+\s\d+\s\d+\s\d+/ ) {
+  $timestamp_central=$2; $server_hostname_ip=$4; $client_http_method=$5; $client_http_uri=":\/\/$3$6"; $client_username=$9; $client_hostname_ip=$10; $client_http_useragent=$11; $client_http_referer=$12; $http_reply_code=$13;
+  if( $8 eq "443" ) { $client_http_uri="https$client_http_uri" }
+  else { $client_http_uri="http$client_http_uri" }
+  unless( $7 eq "-" ) { $client_http_uri="$client_http_uri?$7" }
+  $client_http_useragent =~ s/\+/ /g;
+  if( $client_username eq "-" ){ $client_username="" }
+  print "passage dans IIS default regexp.\n" if $debug2;
  }
 
 
