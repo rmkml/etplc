@@ -19,6 +19,7 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+# 23fev2015: rewrite to split http host and http uri for better performance
 # 18fev2015: added IIS logs parser, thx Tecko
 #  9jan2015: fix apache format logs, thx Alexandre
 #  6jan2015: use new Sys::Hostname perl module
@@ -90,7 +91,7 @@ my $host = hostname;
 
 my $recieved_data;
 
-my ($timestamp_central,$server_hostname_ip,$timestamp_unix,$client_hostname_ip,$client_username,$http_reply_code,$client_http_method,$client_http_uri,$web_hostname_ip,$client_http_useragent,$client_http_referer,$client_http_cookie,$server_remote_ip);
+my ($timestamp_central,$server_hostname_ip,$timestamp_unix,$client_hostname_ip,$client_username,$http_reply_code,$client_http_method,$client_http_uri,$web_hostname_ip,$client_http_useragent,$client_http_referer,$client_http_cookie,$server_remote_ip,$client_http_host,);
 
 my $output_escape;
 my @tableauuricontent;
@@ -690,7 +691,9 @@ foreach $_ ( @fileemergingthreats )
   my $httppcreagent=0;
   my $httpagentshort=0;
   my $httpreferer=0;
+  my $httphost=0;
   my $pcrereferer=0;
+  my $pcrehost=0;
   my @tableauuri1;
   my @tableauuridistance1;
   if( $pcre_uri73 && $http_uri03 && $pcre_uri73=~/\Q$http_uri03\E/i ) {
@@ -953,6 +956,25 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header74  && $http_header74 =~ s/\Q^Referer\x3A\E/^/i ) { $pcrereferer = $http_header74; undef $http_header74 }
   elsif( $http_header74  && $http_header74 =~ s/\QReferer\x3A\E/^/i ) { $pcrereferer = $http_header74; undef $http_header74 }
 
+     if( $http_header68  && $http_header68 =~ s/\Q^Host\x3A\x20\E/^/i ) { $pcrehost = $http_header68; undef $http_header68 }
+  elsif( $http_header68  && $http_header68 =~ s/\Q^Host\x3A \E/^/i ) { $pcrehost = $http_header68; undef $http_header68 }
+  elsif( $http_header68  && $http_header68 =~ s/\QHost\x3A\x20\E/^/i ) { $pcrehost = $http_header68; undef $http_header68 }
+  elsif( $http_header68  && $http_header68 =~ s/\QHost\x3A \E/^/i ) { $pcrehost = $http_header68; undef $http_header68 }
+  elsif( $http_header68  && $http_header68 =~ s/\Q^Host\x3A\E/^/i ) { $pcrehost = $http_header68; undef $http_header68 }
+  elsif( $http_header68  && $http_header68 =~ s/\QHost\x3A\E/^/i ) { $pcrehost = $http_header68; undef $http_header68 }
+     if( $http_header121 && $http_header121 =~ s/\Q^Host\x3A\x20\E/^/i ) { $pcrehost = $http_header121; undef $http_header121 }
+  elsif( $http_header121 && $http_header121 =~ s/\Q^Host\x3A \E/^/i ) { $pcrehost = $http_header121; undef $http_header121 }
+  elsif( $http_header121 && $http_header121 =~ s/\QHost\x3A\x20\E/^/i ) { $pcrehost = $http_header121; undef $http_header121 }
+  elsif( $http_header121 && $http_header121 =~ s/\QHost\x3A \E/^/i ) { $pcrehost = $http_header121; undef $http_header121 }
+  elsif( $http_header121 && $http_header121 =~ s/\Q^Host\x3A\E/^/i ) { $pcrehost = $http_header121; undef $http_header121 }
+  elsif( $http_header121 && $http_header121 =~ s/\QHost\x3A\E/^/i ) { $pcrehost = $http_header121; undef $http_header121 }
+     if( $http_header74  && $http_header74 =~ s/\Q^Host\x3A\x20\E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
+  elsif( $http_header74  && $http_header74 =~ s/\Q^Host\x3A \E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
+  elsif( $http_header74  && $http_header74 =~ s/\QHost\x3A\x20\E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
+  elsif( $http_header74  && $http_header74 =~ s/\QHost\x3A \E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
+  elsif( $http_header74  && $http_header74 =~ s/\Q^Host\x3A\E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
+  elsif( $http_header74  && $http_header74 =~ s/\QHost\x3A\E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
+
   if( $pcrereferer !~ /\\x/ && $pcrereferer =~ /^\^/ && $pcrereferer !~ /^\^\\\-\$$/ )
   {
    $pcrereferer =~ s/\\//g;
@@ -962,12 +984,28 @@ foreach $_ ( @fileemergingthreats )
    $pcrereferer = 0;
   }
 
+  if( $pcrehost !~ /\\x/ && $pcrehost =~ /^\^/ && $pcrehost !~ /^\^\\\-\$$/ )
+  {
+   $pcrehost =~ s/\\//g;
+   $pcrehost =~ s/^\^//g;
+   $pcrehost =~ s/\$$//g;
+   $httphost = $pcrehost;
+   $pcrehost = 0;
+  }
+
      if( $pcre_agent79   && $pcre_agent79  =~ s/\Q^Referer\x3A\x20\E/^/i ) { $pcrereferer = $pcre_agent79; undef $pcre_agent79 }
   elsif( $pcre_agent79   && $pcre_agent79  =~ s/\Q^Referer\x3A \E/^/i ) { $pcrereferer = $pcre_agent79; undef $pcre_agent79 }
   elsif( $pcre_agent79   && $pcre_agent79  =~ s/\QReferer\x3A\x20\E/^/i ) { $pcrereferer = $pcre_agent79; undef $pcre_agent79 }
   elsif( $pcre_agent79   && $pcre_agent79  =~ s/\QReferer\x3A \E/^/i ) { $pcrereferer = $pcre_agent79; undef $pcre_agent79 }
   elsif( $pcre_agent79   && $pcre_agent79  =~ s/\Q^Referer\x3A\E/^/i ) { $pcrereferer = $pcre_agent79; undef $pcre_agent79 }
   elsif( $pcre_agent79   && $pcre_agent79  =~ s/\QReferer\x3A\E/^/i ) { $pcrereferer = $pcre_agent79; undef $pcre_agent79 }
+
+     if( $pcre_agent79   && $pcre_agent79  =~ s/\Q^Host\x3A\x20\E/^/i ) { $pcrehost = $pcre_agent79; undef $pcre_agent79 }
+  elsif( $pcre_agent79   && $pcre_agent79  =~ s/\Q^Host\x3A \E/^/i ) { $pcrehost = $pcre_agent79; undef $pcre_agent79 }
+  elsif( $pcre_agent79   && $pcre_agent79  =~ s/\QHost\x3A\x20\E/^/i ) { $pcrehost = $pcre_agent79; undef $pcre_agent79 }
+  elsif( $pcre_agent79   && $pcre_agent79  =~ s/\QHost\x3A \E/^/i ) { $pcrehost = $pcre_agent79; undef $pcre_agent79 }
+  elsif( $pcre_agent79   && $pcre_agent79  =~ s/\Q^Host\x3A\E/^/i ) { $pcrehost = $pcre_agent79; undef $pcre_agent79 }
+  elsif( $pcre_agent79   && $pcre_agent79  =~ s/\QHost\x3A\E/^/i ) { $pcrehost = $pcre_agent79; undef $pcre_agent79 }
 
   if( $pcrereferer )
   {
@@ -981,6 +1019,18 @@ foreach $_ ( @fileemergingthreats )
    $pcrereferer =~ s/\Q^[^\n]*\E//i;
   }
 
+  if( $pcrehost )
+  {
+   $pcrehost =~ s/\Q^[^\r\n]+?\E//i;
+   $pcrehost =~ s/\Q^[^\r\n]+\E//i;
+   $pcrehost =~ s/\Q^[^\r\n]*?\E//i;
+   $pcrehost =~ s/\Q^[^\r\n]*\E//i;
+   $pcrehost =~ s/\Q^[^\n]+?\E//i;
+   $pcrehost =~ s/\Q^[^\n]+\E//i;
+   $pcrehost =~ s/\Q^[^\n]*?\E//i;
+   $pcrehost =~ s/\Q^[^\n]*\E//i;
+  }
+
   if( $pcre_agent79 )
   {
    $pcre_agent79 =~ s/\Q^[^\r\n]+?\E//i;
@@ -991,12 +1041,6 @@ foreach $_ ( @fileemergingthreats )
    $pcre_agent79 =~ s/\Q^[^\n]+\E//i;
    $pcre_agent79 =~ s/\Q^[^\n]*?\E//i;
    $pcre_agent79 =~ s/\Q^[^\n]*\E//i;
-  }
-
-  if( $pcre_uri73 )
-  {
-   $pcre_uri73 =~ s/^\^\\\//\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\\//i;
-   $pcre_uri73 =~ s/^\^\\x2F/\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\x2F/i;
   }
 
   # http_user_agent short
@@ -1402,6 +1446,8 @@ foreach $_ ( @fileemergingthreats )
   print "httpreferer1: $etmsg1, ".lc($httpreferer)."\n" if $debug1 && $httpreferer;
   print "tableaupcrereferer1: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
   print "httpurilongdistance1: $etmsg1, @tableauuridistance1\n" if $debug1 && @tableauuridistance1;
+  print "httphost1: $etmsg1, ".lc($httphost)."\n" if $debug1 && $httphost;
+  print "tableaupcrehost1: $etmsg1, $pcrehost\n" if $debug1 && $pcrehost;
 
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
@@ -1412,6 +1458,8 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{pcreagent} = [ $httppcreagent, $httppcreagent_nocase ] if $httppcreagent;
   $hash{$etmsg1}{httpurilong} = [ @tableauuri1 ] if @tableauuri1;
   $hash{$etmsg1}{httpurilongdistance} = [ @tableauuridistance1 ] if @tableauuridistance1;
+  $hash{$etmsg1}{httphost} = [ lc($httphost) ] if $httphost;
+  $hash{$etmsg1}{pcrehost} = [ $pcrehost ] if $pcrehost;
 
   next;
  }
@@ -1585,11 +1633,11 @@ foreach $_ ( @fileemergingthreats )
      if( $http_header06 && $http_header06 =~ s/\QReferer\x3A\x20\E/^/i ) { $pcrereferer = $http_header06; undef $http_header06 }
   elsif( $http_header06 && $http_header06 =~ s/\QReferer\x3A \E/^/i ) { $pcrereferer = $http_header06; undef $http_header06 }
 
-  if( $pcre_uri20 )
-  {
-   $pcre_uri20 =~ s/^\^\\\//\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\\//i;
-   $pcre_uri20 =~ s/^\^\\x2F/\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\x2F/i;
-  }
+  #if( $pcre_uri20 )
+  #{
+  # $pcre_uri20 =~ s/^\^\\\//\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\\//i;
+  # $pcre_uri20 =~ s/^\^\\x2F/\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\x2F/i;
+  #}
 
   # http_user_agent short
   if( $http_header06 )
@@ -1969,11 +2017,11 @@ foreach $_ ( @fileemergingthreats )
      if( $http_header18 && $http_header18 =~ s/\QReferer\x3A\x20\E/^/i ) { $pcrereferer = $http_header18; undef $http_header18 }
   elsif( $http_header18 && $http_header18 =~ s/\QReferer\x3A \E/^/i ) { $pcrereferer = $http_header18; undef $http_header18 }
 
-  if( $pcre_uri23 )
-  {
-   $pcre_uri23 =~ s/^\^\\\//\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\\//i;
-   $pcre_uri23 =~ s/^\^\\x2F/\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\x2F/i;
-  }
+  #if( $pcre_uri23 )
+  #{
+  # $pcre_uri23 =~ s/^\^\\\//\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\\//i;
+  # $pcre_uri23 =~ s/^\^\\x2F/\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\x2F/i;
+  #}
 
   # http_user_agent short
   if( $http_header08 && $http_header18 && length($http_header08) >= length($http_header18) )
@@ -2313,9 +2361,13 @@ foreach $_ ( @fileemergingthreats )
   my $httppcreagent=0;
   my $httpagentshort=0;
   my $httpreferer=0;
+  my $httphost=0;
   my $pcrereferer=0;
+  my $pcrehost=0;
   my $http_cookie=0;
   my $cookiepcre=0;
+  my $http_host03=0;
+  my $pcre_host34=0;
   my @tableauuri1;
 
      if( $http_header03 && $http_header03 =~ s/\QUser\-Agent\x3A\x20\E(?!$)/^/i ) { }
@@ -2413,6 +2465,19 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header23 && $http_header23 =~ s/\QReferer\x3A\x20\E/^/i ) { $http_header23 =~ s/\Q\x0D\x0A\E/\$/i; $pcrereferer = $http_header23; undef $http_header23 }
   elsif( $http_header23 && $http_header23 =~ s/\QReferer\x3A \E/^/i ) { $http_header23 =~ s/\Q\x0D\x0A\E/\$/i; $pcrereferer = $http_header23; undef $http_header23 }
 
+     if( $http_header03 && $http_header03 =~ s/\Q^Host\x3A\x20\E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header03; undef $http_header03 }
+  elsif( $http_header03 && $http_header03 =~ s/\Q^Host\x3A \E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header03; undef $http_header03 }
+  elsif( $http_header03 && $http_header03 =~ s/\QHost\x3A\x20\E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header03; undef $http_header03 }
+  elsif( $http_header03 && $http_header03 =~ s/\QHost\x3A \E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header03; undef $http_header03 }
+     if( $http_header13 && $http_header13 =~ s/\Q^Host\x3A\x20\E/^/i ) { $http_host03=~s/\Q\x0D\x0A\E/\$/i;   $pcrehost = $http_header13; undef $http_header13 }
+  elsif( $http_header13 && $http_header13 =~ s/\Q^Host\x3A \E/^/i ) { $http_host03=~s/\Q\x0D\x0A\E/\$/i;   $pcrehost = $http_header13; undef $http_header13 }
+  elsif( $http_header13 && $http_header13 =~ s/\QHost\x3A\x20\E/^/i ) { $http_host03=~s/\Q\x0D\x0A\E/\$/i;   $pcrehost = $http_header13; undef $http_header13 }
+  elsif( $http_header13 && $http_header13 =~ s/\QHost\x3A \E/^/i ) { $http_host03=~s/\Q\x0D\x0A\E/\$/i;   $pcrehost = $http_header13; undef $http_header13 }
+     if( $http_header23 && $http_header23 =~ s/\Q^Host\x3A\x20\E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header23; undef $http_header23 }
+  elsif( $http_header23 && $http_header23 =~ s/\Q^Host\x3A \E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header23; undef $http_header23 }
+  elsif( $http_header23 && $http_header23 =~ s/\QHost\x3A\x20\E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header23; undef $http_header23 }
+  elsif( $http_header23 && $http_header23 =~ s/\QHost\x3A \E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header23; undef $http_header23 }
+
   if( $pcrereferer !~ /\\x/ && $pcrereferer =~ /^\^/ && $pcrereferer !~ /^\^\\\-\$$/ )
   {
    $pcrereferer =~ s/\\//g;
@@ -2422,10 +2487,24 @@ foreach $_ ( @fileemergingthreats )
    $pcrereferer = 0;
   }
 
+  if( $pcrehost !~ /\\x/ && $pcrehost =~ /^\^/ && $pcrehost !~ /^\^\\\-\$$/ )
+  {
+   $pcrehost =~ s/\\//g;
+   $pcrehost =~ s/^\^//g;
+   $pcrehost =~ s/\$$//g;
+   $httphost = $pcrehost;
+   $pcrehost = 0;
+  }
+
      if( $pcre_agent34  && $pcre_agent34  =~ s/\Q^Referer\x3A\x20\E/^/i ) { $pcre_agent34 =~ s/\Q\x0D\x0A\E/\$/i;  $pcrereferer = $pcre_agent34; undef $pcre_agent34 }
   elsif( $pcre_agent34  && $pcre_agent34  =~ s/\Q^Referer\x3A \E/^/i ) { $pcre_agent34 =~ s/\Q\x0D\x0A\E/\$/i;  $pcrereferer = $pcre_agent34; undef $pcre_agent34 }
   elsif( $pcre_agent34  && $pcre_agent34  =~ s/\QReferer\x3A\x20\E/^/i ) { $pcre_agent34 =~ s/\Q\x0D\x0A\E/\$/i;  $pcrereferer = $pcre_agent34; undef $pcre_agent34 }
   elsif( $pcre_agent34  && $pcre_agent34  =~ s/\QReferer\x3A \E/^/i ) { $pcre_agent34 =~ s/\Q\x0D\x0A\E/\$/i;  $pcrereferer = $pcre_agent34; undef $pcre_agent34 }
+
+     if( $pcre_agent34  && $pcre_agent34  =~ s/\Q^Host\x3A\x20\E/^/i ) { $pcre_host34 =~ s/\Q\x0D\x0A\E/\$/i;  $pcrehost = $pcre_agent34; undef $pcre_agent34 }
+  elsif( $pcre_agent34  && $pcre_agent34  =~ s/\Q^Host\x3A \E/^/i ) { $pcre_host34 =~ s/\Q\x0D\x0A\E/\$/i;  $pcrehost = $pcre_agent34; undef $pcre_agent34 }
+  elsif( $pcre_agent34  && $pcre_agent34  =~ s/\QHost\x3A\x20\E/^/i ) { $pcre_host34 =~ s/\Q\x0D\x0A\E/\$/i;  $pcrehost = $pcre_agent34; undef $pcre_agent34 }
+  elsif( $pcre_agent34  && $pcre_agent34  =~ s/\QHost\x3A \E/^/i ) { $pcre_host34 =~ s/\Q\x0D\x0A\E/\$/i;  $pcrehost = $pcre_agent34; undef $pcre_agent34 }
 
      if( $http_header03 && $http_header03 =~ s/\Q\x0d\x0aCookie\x3A \E(?!$)/^/i ) { $http_cookie = $http_header03; undef $http_header03 }
   elsif( $http_header03 && $http_header03 =~ s/\QCookie\x3A \E(?!$)/^/i ) { $http_cookie = $http_header03; undef $http_header03 }
@@ -2497,11 +2576,11 @@ foreach $_ ( @fileemergingthreats )
    $pcre_agent34 =~ s/\Q^[^\n]*\E//i;
   }
 
-  if( $pcre_uri33 )
-  {
-   $pcre_uri33 =~ s/^\^\\\//\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\\//i;
-   $pcre_uri33 =~ s/^\^\\x2F/\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\x2F/i;
-  }
+  #if( $pcre_uri33 )
+  #{
+  # $pcre_uri33 =~ s/^\^\\\//\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\\//i;
+  # $pcre_uri33 =~ s/^\^\\x2F/\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\x2F/i;
+  #}
 
   my $okremiseazeropcreagent34=0;
   if( $pcre_agent34 && $http_header03 && ( $pcre_agent34 =~ /^\^\[\^(?:\\r)?\\n(?:\\r)?\]\+(.*)$/ ) && ( $http_header03 eq $1 ) ) { $okremiseazeropcreagent34=1 }
@@ -2773,6 +2852,8 @@ foreach $_ ( @fileemergingthreats )
   print "tableaupcrereferer4: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
   print "tableauhttpcookie4: $etmsg1, $http_cookie\n" if $debug1 && $http_cookie;
   print "tableaupcrecookie4: $etmsg1, $cookiepcre\n" if $debug1 && $cookiepcre;
+  print "httphost4: $etmsg1, ".lc($httphost)."\n" if $debug1 && $httphost;
+  print "tableaupcrehost4: $etmsg1, $pcrehost\n" if $debug1 && $pcrehost;
 
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
@@ -2784,6 +2865,8 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{httpcookie} = [ $http_cookie ] if $http_cookie;
   $hash{$etmsg1}{pcrecookie} = [ $cookiepcre ] if $cookiepcre;
   $hash{$etmsg1}{httpurilong} = [ @tableauuri1 ] if @tableauuri1;
+  $hash{$etmsg1}{httphost} = [ lc($httphost) ] if $httphost;
+  $hash{$etmsg1}{pcrehost} = [ $pcrehost ] if $pcrehost;
 
   next;
  }
@@ -2987,8 +3070,10 @@ my @threads = map threads->create(sub {
 # without syslog header:
 #1406207792.966 120930 192.168.8.3 TCP_MISS/200 111285 CONNECT https://i1.ytimg.com:443 - DEFAULT_PARENT/127.0.0.1 -
  #if ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)\s(\S+)\s\S+\:\s(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z]+\/(\S+)\s/ ) {
- elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z\_]+\/(\S+)\s/ ) {
-  $timestamp_central=$1; $server_hostname_ip=$2; $timestamp_unix=$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri=$7; $web_hostname_ip=$8;
+# elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z\_]+\/(\S+)\s/ ) {
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(?:[^\:]*?\:\/\/)?([^\/]*?)(\/\S*)?\s+\-\s+[A-Z\_]+\/(\S+)\s/ ) {
+#  $timestamp_central=$1; $server_hostname_ip=$2; $timestamp_unix=$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri=$7; $web_hostname_ip=$8;
+  $timestamp_central=$1; $server_hostname_ip=$2; $timestamp_unix=$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_host=$7; $client_http_uri=$8; $web_hostname_ip=$9;
   $client_username="";
   unless( $1 ) { $timestamp_central="N/A" }
   unless( $2 ) { $server_hostname_ip="N/A" }
@@ -3008,8 +3093,10 @@ my @threads = map threads->create(sub {
 # add cookie + remote_ip :
 # 2013-11-23T02:09:29.909623+01:00 hostname programname:   142 192.168.1.2 TCP_MISS/200 - [23/Nov/2013:02:09:22 +0100] 1890 GET http://etplc.org/ - HIER_DIRECT/etplc.org text/html "Wget/1.13.4 (linux-gnu)" "-" "fGGhTasdas=http" 8.8.8.8
 
- elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\\\"([^\"]+)\\\" \\\"([^\"]+)\\\" \\\"([^\"]+)\\\"(?:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?/ ) {
-  $timestamp_central=$1; $server_hostname_ip=$2; $client_hostname_ip=$3; $http_reply_code=$4; $timestamp_unix=$5; $client_http_method=$6; $client_http_uri=$7; $web_hostname_ip=$8; $client_http_useragent=$9; $client_http_referer=$10; $client_http_cookie=$11; $server_remote_ip=$12;
+# elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\\\"([^\"]+)\\\" \\\"([^\"]+)\\\" \\\"([^\"]+)\\\"(?:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?/ ) {
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+(\S+)\s(?:[^\:]*?\:\/\/)?([^\/]*?)(\/\S*)?\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\\\"([^\"]+)\\\" \\\"([^\"]+)\\\" \\\"([^\"]+)\\\"(?:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?/ ) {
+#  $timestamp_central=$1; $server_hostname_ip=$2; $client_hostname_ip=$3; $http_reply_code=$4; $timestamp_unix=$5; $client_http_method=$6; $client_http_uri=$7; $web_hostname_ip=$8; $client_http_useragent=$9; $client_http_referer=$10; $client_http_cookie=$11; $server_remote_ip=$12;
+  $timestamp_central=$1; $server_hostname_ip=$2; $client_hostname_ip=$3; $http_reply_code=$4; $timestamp_unix=$5; $client_http_method=$6; $client_http_host=$7; $client_http_uri=$8; $web_hostname_ip=$9; $client_http_useragent=$10; $client_http_referer=$11; $client_http_cookie=$12; $server_remote_ip=$13;
   $client_username="";
   unless( $1 ) { $timestamp_central="N/A" }
   unless( $2 ) { $server_hostname_ip="N/A" }
@@ -3044,13 +3131,15 @@ my @threads = map threads->create(sub {
 #10.0.0.1	DOMAINE\USERNAME	Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)	2013-06-21	00:00:13	SERVERNAME	-	-	10.0.0.2	8085	0	1695	1532	SSL-tunnel	-	www.marketscore.com:443	Upstream	0
 #10.0.0.1	DOMAINE\USERNAME	Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)	2013-06-21	00:00:24	SERVERNAME	-	www.marketscore.com	10.0.0.2	443	31	938	448	SSL-tunnel	CONNECT	-	-	12210
 
- elsif ( $output_escape =~ /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)/) {
-  $client_hostname_ip=$1; $client_username=$2; $client_http_useragent=$3; $timestamp_central=$4." ".$5; $server_hostname_ip=$6; $client_http_referer=$7; $client_http_method=$9; $client_http_uri=$10; $http_reply_code=$11;
+# elsif ( $output_escape =~ /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)/) {
+ elsif ( $output_escape =~ /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(?:\w+\:\/\/)?([^\/]*?)(\/.*?)?(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)/) {
+#  $client_hostname_ip=$1; $client_username=$2; $client_http_useragent=$3; $timestamp_central=$4." ".$5; $server_hostname_ip=$6; $client_http_referer=$7; $client_http_method=$9; $client_http_uri=$10; $http_reply_code=$11;
+  $client_hostname_ip=$1; $client_username=$2; $client_http_useragent=$3; $timestamp_central=$4." ".$5; $server_hostname_ip=$6; $client_http_referer=$7; $client_http_method=$9; $client_http_host=$10; $client_http_uri=$11; $http_reply_code=$12;
   # https/ssl-tunnel:
-  if( $10 eq "-" && $8 ne "-" )
-  {
-   $client_http_uri=$8;
-  }
+  #if( $11 eq "-" && $8 ne "-" )
+  #{
+  # $client_http_uri=$8;
+  #}
   print "passage dans TMG/ForeFront regexp.\n" if $debug2;
  }
 
@@ -3058,11 +3147,14 @@ my @threads = map threads->create(sub {
 # <161>Aug 21 21:59:59 srv log: 2014-08-21 22:00:00 2 10.0.0.2 - - "none" PROXIED 407 - TCP_DENIED - http tools.google.com 80 /service/update2 ?w=6 "Google Update" 10.0.0.3 1681 1665 -
 
  elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\\\"[^\"]*?\\\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\\\"([^\"]*?)\\\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?\\?r?$/ ) {
-  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $client_username=$5; $http_reply_code=$6; $client_http_referer=$7; $client_http_uri="$8:\/\/$9$11$12"; $client_http_useragent=$13;
-  if( $8 eq "tcp" && $12 ne "-" ) { $client_http_uri=$9 }
+  #$server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $client_username=$5; $http_reply_code=$6; $client_http_referer=$7; $client_http_uri="$8:\/\/$9$11$12"; $client_http_useragent=$13;
+  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $client_username=$5; $http_reply_code=$6; $client_http_referer=$7; $client_http_host=$9; $client_http_uri="$11$12"; $client_http_useragent=$13;
+  #if( $8 eq "tcp" && $12 ne "-" ) { $client_http_uri=$9 }
   unless( $13 ) { $client_http_useragent=$14 }
-  if( $12 eq "-" && $8 ne "tcp" ) { $client_http_uri="$8:\/\/$9$11" }
-  elsif( $12 eq "-" && $8 eq "tcp" ) { $client_http_uri="$9$11" }
+  #if( $12 eq "-" && $8 ne "tcp" ) { $client_http_uri="$8:\/\/$9$11" }
+  if( $12 eq "-" && $8 ne "tcp" ) { $client_http_uri="$11" }
+  #elsif( $12 eq "-" && $8 eq "tcp" ) { $client_http_uri="$9$11" }
+  elsif( $12 eq "-" && $8 eq "tcp" ) { $client_http_uri="$11" }
   print "passage dans BlueCoat 1 sans http_method regexp.\n" if $debug2;
  }
 
@@ -3074,11 +3166,14 @@ my @threads = map threads->create(sub {
 # Oct 10 11:10:21 10.0.0.1/10.0.0.1 2013-10-10 11:10:24 1 10.0.0.2 - - \"none\" CATEGORY 407 - TCP_DENIED - CONNECT tcp www.test.com 443 / - \"Mozilla/4.0\" 10.0.0.3 330 308 -
 
  elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\\\"[^\"]*?\\\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\\\"([^\"]*?)\\\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?\\?r?$/ ) {
-  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $client_username=$5; $http_reply_code=$6; $client_http_referer=$7; $client_http_method=$8; $client_http_uri="$9:\/\/$10$12$13"; $client_http_useragent=$14;
-  if( $9 eq "tcp" && $13 ne "-" ) { $client_http_uri=$10 }
+  #$server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $client_username=$5; $http_reply_code=$6; $client_http_referer=$7; $client_http_method=$8; $client_http_uri="$9:\/\/$10$12$13"; $client_http_useragent=$14;
+  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $client_username=$5; $http_reply_code=$6; $client_http_referer=$7; $client_http_method=$8; $client_http_host=$10; $client_http_uri="$12$13"; $client_http_useragent=$14;
+  #if( $9 eq "tcp" && $13 ne "-" ) { $client_http_uri=$10 }
   unless( $13 ) { $client_http_useragent=$14 }
-  if( $13 eq "-" && $9 ne "tcp" ) { $client_http_uri="$9:\/\/$10$12" }
-  elsif( $13 eq "-" && $9 eq "tcp" ) { $client_http_uri="$10$12" }
+  #if( $13 eq "-" && $9 ne "tcp" ) { $client_http_uri="$9:\/\/$10$12" }
+  if( $13 eq "-" && $9 ne "tcp" ) { $client_http_uri="$12" }
+  #elsif( $13 eq "-" && $9 eq "tcp" ) { $client_http_uri="$10$12" }
+  elsif( $13 eq "-" && $9 eq "tcp" ) { $client_http_uri="$12" }
   print "passage dans BlueCoat 2 avec http_method regexp.\n" if $debug2;
  }
 
@@ -3090,10 +3185,13 @@ my @threads = map threads->create(sub {
 #2014-12-27 19:36:59 1 10.0.0.1 0 DENIED 0 0 unknown ssl webanalytics.btelligent.net 443 / - - - webanalytics.btelligent.net - - - DENIED "Placeholders" - 172.16.0.1
 
  elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\d+)\s\S+\s\d+\s\d+\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\S+)\s(\S+)\s\S+\s\S+\s\S+\s(\S+)\s(?:\\\"([^\"]*?)\\\"|(\-))\s\S+\s(?:\\\"(?:[^\"]*?)\\\"|(?:\-))\s(?:\\\"(?:[^\"]*?)\\\"|(?:\-))\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\\r)?$/ ) {
-  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri="$7:\/\/$8$10$11"; $client_username=$12; $client_http_referer=$13; $client_http_useragent=$14; $server_remote_ip=$16;
-  if( $7 eq "tcp" ) { $client_http_uri=$8 }
-  if( $11 eq "-" && $7 ne "tcp" ) { $client_http_uri="$7:\/\/$8$10" }
-  elsif( $11 eq "-" && $7 eq "tcp" ) { $client_http_uri="$8$10" }
+  #$server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri="$7:\/\/$8$10$11"; $client_username=$12; $client_http_referer=$13; $client_http_useragent=$14; $server_remote_ip=$16;
+  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_host=$8; $client_http_uri="$10$11"; $client_username=$12; $client_http_referer=$13; $client_http_useragent=$14; $server_remote_ip=$16;
+  #if( $7 eq "tcp" ) { $client_http_uri=$8 }
+  #if( $11 eq "-" && $7 ne "tcp" ) { $client_http_uri="$7:\/\/$8$10" }
+  if( $11 eq "-" && $7 ne "tcp" ) { $client_http_uri="$10" }
+  #elsif( $11 eq "-" && $7 eq "tcp" ) { $client_http_uri="$8$10" }
+  elsif( $11 eq "-" && $7 eq "tcp" ) { $client_http_uri="$10" }
   print "passage dans BlueCoat 3 avec http_method regexp.\n" if $debug2;
  }
 
@@ -3104,8 +3202,10 @@ my @threads = map threads->create(sub {
 # [1/Mar/2014:17:34:11 +0200] \"\" \"\" 10.1.1.1 200 \"CONNECT ssl.google-analytics.com:443 HTTP/1.1\" \"Internet Services\" \"3 (Minimal Risk)\" \"\" 6847 \"Mozilla/5.0 (compatible; MSIE 11.0; Windows NT 7.1; Trident/5.0)\" \"\" Cache=\"TCP_MISS\" nexthopname.com
 # 2013-11-22T22:01:49.577030+01:00 hostname programname: [1/Mar/2014:17:34:11 +0200] \"\" \"\" 10.1.1.1 200 \"CONNECT ssl.google-analytics.com:443 HTTP/1.1\" \"Internet Services\" \"3 (Minimal Risk)\" \"\" 6847 \"Mozilla/5.0 (compatible; MSIE 11.0; Windows NT 7.1; Trident/5.0)\" \"\" Cache=\"TCP_MISS\" nexthopname.com
 
- elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?\s*\[([^\]]*?)\] \\\"([^\"]*?)\\\" \\\"[^\"]*?\\\" (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (0|\d{3}) \\\"([^\s]+)\s([^\s]+)\s[^\"]*?\\\" \\\"[^\"]*?\\\" \\\"[^\"]*?\\\" \\\"[^\"]*?\\\" \d+ \\\"([^\"]*)\\\" \\\"[^\"]*?\\\" \S+ (?:\S+)?$/ ) {
-  $server_hostname_ip=$1; $timestamp_central=$2; $client_username=$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri=$7; $client_http_useragent=$8;
+ #elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?\s*\[([^\]]*?)\] \\\"([^\"]*?)\\\" \\\"[^\"]*?\\\" (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (0|\d{3}) \\\"([^\s]+)\s([^\s]+)\s[^\"]*?\\\" \\\"[^\"]*?\\\" \\\"[^\"]*?\\\" \\\"[^\"]*?\\\" \d+ \\\"([^\"]*)\\\" \\\"[^\"]*?\\\" \S+ (?:\S+)?$/ ) {
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?\s*\[([^\]]*?)\] \\\"([^\"]*?)\\\" \\\"[^\"]*?\\\" (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (0|\d{3}) \\\"([^\s]+)\s(?:\w+\:\/\/)?([^\/]*?)(\/[^\s]*)?\s[^\"]*?\\\" \\\"[^\"]*?\\\" \\\"[^\"]*?\\\" \\\"[^\"]*?\\\" \d+ \\\"([^\"]*)\\\" \\\"[^\"]*?\\\" \S+ (?:\S+)?$/ ) {
+  #$server_hostname_ip=$1; $timestamp_central=$2; $client_username=$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_uri=$7; $client_http_useragent=$8;
+  $server_hostname_ip=$1; $timestamp_central=$2; $client_username=$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_host=$7; $client_http_uri=$8; $client_http_useragent=$9;
   unless( $client_http_useragent ) { $client_http_useragent="-" }
   print "passage dans McAfee default regexp.\n" if $debug2;
  }
@@ -3118,9 +3218,10 @@ my @threads = map threads->create(sub {
 # 2015-01-23 15:50:53 W3SVC2 DOFR01 10.0.0.2 GET /download/downloadUrl.asp file=../../etc/passwd 80 - 10.94.210.10 Mozilla/5.0+(Macintosh;+Intel+Mac+OS+X+10_10_1)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/39.0.2171.95+Safari/537.36 - 200 0 0 195 818 15
 
  elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2} \d{2}\:\d{2}\:\d{2})\s(\S+)\s(\S+)\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(\S+)\s(\d+)\s\d+\s\d+\s\d+\s\d+\s\d+/ ) {
-  $timestamp_central=$2; $server_hostname_ip=$4; $client_http_method=$5; $client_http_uri=":\/\/$3$6"; $client_username=$9; $client_hostname_ip=$10; $client_http_useragent=$11; $client_http_referer=$12; $http_reply_code=$13;
-  if( $8 eq "443" ) { $client_http_uri="https$client_http_uri" }
-  else { $client_http_uri="http$client_http_uri" }
+  #$timestamp_central=$2; $server_hostname_ip=$4; $client_http_method=$5; $client_http_uri=":\/\/$3$6"; $client_username=$9; $client_hostname_ip=$10; $client_http_useragent=$11; $client_http_referer=$12; $http_reply_code=$13;
+  $timestamp_central=$2; $server_hostname_ip=$4; $client_http_method=$5; $client_http_host=$3; $client_http_uri=$6; $client_username=$9; $client_hostname_ip=$10; $client_http_useragent=$11; $client_http_referer=$12; $http_reply_code=$13;
+  #if( $8 eq "443" ) { $client_http_uri="https$client_http_uri" }
+  #else { $client_http_uri="http$client_http_uri" }
   unless( $7 eq "-" ) { $client_http_uri="$client_http_uri?$7" }
   $client_http_useragent =~ s/\+/ /g;
   if( $client_username eq "-" ){ $client_username="" }
@@ -3152,6 +3253,7 @@ my @threads = map threads->create(sub {
  print ", client_http_useragent: ",$client_http_useragent if $client_http_useragent && $debug2;
  print ", client_http_referer: ",$client_http_referer if $client_http_referer && $debug2;
  print ", client_http_cookie: ",$client_http_cookie if $client_http_cookie && $debug2;
+ print ", client_http_host: ",$client_http_host if $client_http_host && $debug2;
  print ", server_remote_ip: ",$server_remote_ip if $server_remote_ip && $debug2;
  print "\n" if $timestamp_central && $debug2;
 
@@ -3177,7 +3279,7 @@ my @threads = map threads->create(sub {
 ####################################################################################################
 
 
- if( $client_http_uri )
+ if( $client_http_host || $client_http_uri )
  {
   my $etmsg;
 
@@ -3196,6 +3298,8 @@ my @threads = map threads->create(sub {
    my $foundpcreagent=0;
    my $foundpcrecookie=0;
    my $foundremoteip=0;
+   my $foundhost=0;
+   my $foundpcrehost=0;
 
    foreach $clef ( sort( keys %{$hash{$etmsg}} ) )
    {
@@ -3330,6 +3434,21 @@ my @threads = map threads->create(sub {
      }
     }
 
+    elsif( $clef eq "httphost" && !$jump )
+    {
+     if( $hash{$etmsg}{"httphost"}[0] && $client_http_host && index(lc($client_http_host), $hash{$etmsg}{"httphost"}[0]) != -1 )
+     {
+      print "ici13: ",$hash{$etmsg}{"httphost"}[0],"\n" if $debug2 && $hash{$etmsg}{"httphost"}[0];
+      $foundhost=1;
+     }
+     elsif( $hash{$etmsg}{"httphost"}[0] )
+     {
+      print "httphost not found: jump (",$hash{$etmsg}{"httphost"}[0],")\n" if $debug2;
+      $jump=1;
+      last;
+     }
+    }
+
     elsif( $clef eq "httpcookie" && !$jump )
     {
      if( $hash{$etmsg}{"httpcookie"}[1] && $client_http_cookie && index(lc($client_http_cookie), lc($hash{$etmsg}{"httpcookie"}[0])) != -1 )
@@ -3365,6 +3484,26 @@ my @threads = map threads->create(sub {
      elsif( $hash{$etmsg}{"pcrereferer"}[0] )
      {
       print "pcrereferer not found: jump (",$hash{$etmsg}{"pcrereferer"}[0],")\n" if $debug2;
+      $jump=1;
+      last;
+     }
+    }
+
+    elsif( $clef eq "pcrehost" && !$jump )
+    {
+     if( $hash{$etmsg}{"pcrehost"}[0] && $client_http_host && ($hash{$etmsg}{"pcrehost"}[0] eq '^\-$') && $client_http_host eq '-' )
+     {
+      print "ici14a: ",$hash{$etmsg}{"pcrehost"}[0],"\n" if $debug2 && $hash{$etmsg}{"pcrehost"}[0];
+      $foundpcrehost=1;
+     }
+     elsif( $hash{$etmsg}{"pcrehost"}[0] && $client_http_host and not ($hash{$etmsg}{"pcrehost"}[0] eq '^\-$') && $client_http_host =~ /$hash{$etmsg}{"pcrehost"}[0]/i )
+     {
+      print "ici14b: ",$hash{$etmsg}{"pcrehost"}[0]," \n" if $debug2 && $hash{$etmsg}{"pcrehost"}[0];
+      $foundpcrehost=1;
+     }
+     elsif( $hash{$etmsg}{"pcrehost"}[0] )
+     {
+      print "pcrehost not found: jump (",$hash{$etmsg}{"pcrehost"}[0],")\n" if $debug2;
       $jump=1;
       last;
      }
@@ -3452,7 +3591,7 @@ my @threads = map threads->create(sub {
    }
    unless( $jump )
    {
-    if( $syslogsock && ($foundmethod or $founduricourt1 or $foundurilong1 or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip) )
+    if( $syslogsock && ($foundmethod or $founduricourt1 or $foundurilong1 or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost) )
     {
      my $tutu='';
      print $syslogsock "$host etplc: ok trouvé: ";
@@ -3465,6 +3604,7 @@ my @threads = map threads->create(sub {
      print $syslogsock "client_http_useragent: $client_http_useragent, " if $client_http_useragent;
      print $syslogsock "client_http_referer: $client_http_referer, " if $client_http_referer;
      print $syslogsock "client_http_cookie: $client_http_cookie, " if $client_http_cookie;
+     print $syslogsock "client_http_host: $client_http_host, " if $client_http_host;
      print $syslogsock "http_reply_code: $http_reply_code, " if $http_reply_code;
      print $syslogsock "server_remote_ip: $server_remote_ip, " if $server_remote_ip;
      print $syslogsock "etmsg: $etmsg" if $etmsg;
@@ -3516,9 +3656,17 @@ my @threads = map threads->create(sub {
      $tutu=$hash{$etmsg}{"remoteip"}[0];
      print $syslogsock ", etremoteip: $tutu" if $foundremoteip;
 
+     #print $syslogsock ", ethost: ",$hash{$etmsg}{"httphost"}[0] if $foundhost;
+     $tutu=$hash{$etmsg}{"httphost"}[0];
+     print $syslogsock ", ethost: $tutu" if $foundhost;
+
+     #print $syslogsock ", etpcrehost: ",$hash{$etmsg}{"pcrehost"}[0] if $foundpcrehost;
+     $tutu=$hash{$etmsg}{"pcrehost"}[0];
+     print $syslogsock ", etpcrehost: $tutu" if $foundpcrehost;
+
      print $syslogsock "\n";
     }
-    elsif( $foundmethod or $founduricourt1 or $foundurilong1 or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip)
+    elsif( $foundmethod or $founduricourt1 or $foundurilong1 or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost)
     {
      print "ok trouvé: ";
      print "timestamp: $timestamp_central, " if $timestamp_central;
@@ -3530,6 +3678,7 @@ my @threads = map threads->create(sub {
      print "client_http_useragent: $client_http_useragent, " if $client_http_useragent;
      print "client_http_referer: $client_http_referer, " if $client_http_referer;
      print "client_http_cookie: $client_http_cookie, " if $client_http_cookie;
+     print "client_http_host: $client_http_host, " if $client_http_host;
      print "http_reply_code: $http_reply_code, " if $http_reply_code;
      print "server_remote_ip: $server_remote_ip, " if $server_remote_ip;
      print "etmsg: $etmsg" if $etmsg;
@@ -3545,13 +3694,15 @@ my @threads = map threads->create(sub {
      print ", etpcrecookie: ",$hash{$etmsg}{"pcrecookie"}[0] if $foundpcrecookie;
      print ", etpcreuri: ",$hash{$etmsg}{"pcreuri"}[0] if $foundpcreuri;
      print ", etremoteip: ",$hash{$etmsg}{"remoteip"}[0] if $foundremoteip;
+     print ", ethost: ",$hash{$etmsg}{"httphost"}[0] if $foundhost;
+     print ", etpcrehost: ",$hash{$etmsg}{"pcrehost"}[0] if $foundpcrehost;
      print "\n";
     }
    }
   }
  }
 
- $timestamp_central=0; $server_hostname_ip=0; $timestamp_unix=0; $client_hostname_ip=0; $client_username=0; $http_reply_code=0; $client_http_method=0; $client_http_uri=0; $web_hostname_ip=0; $client_http_useragent=0; $client_http_referer=0; $client_http_cookie=0; $server_remote_ip=0;
+ $timestamp_central=0; $server_hostname_ip=0; $timestamp_unix=0; $client_hostname_ip=0; $client_username=0; $http_reply_code=0; $client_http_method=0; $client_http_uri=0; $web_hostname_ip=0; $client_http_useragent=0; $client_http_referer=0; $client_http_cookie=0; $server_remote_ip=0; $client_http_host=0;
 
   }
  }
