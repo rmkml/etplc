@@ -18,6 +18,7 @@
 # Contact: rmkml@yahoo.fr
 
 # ChangeLog:
+# 23fev2015: rewrite to split http host and http uri for better performance + fix pcreagent and pcrereferer
 # 18fev2015: added IIS logs parser, thx Tecko
 #  9jan2015: merge python v2 and v3 and fix apache format logs, thx Alexandre
 # 28dec2014: add remote_ip bluecoat main format logs v6.5.5
@@ -57,7 +58,7 @@ import gzip
 ####################################################################################################
 
 # global variables:
-timestamp_central=0; server_hostname_ip=0; timestamp_unix=0; client_hostname_ip=0; client_username=0; http_reply_code=0; client_http_method=0; client_http_uri=0; web_hostname_ip=0; client_http_useragent=0; client_http_referer=0; client_http_cookie=0; server_remote_ip=0;
+timestamp_central=0; server_hostname_ip=0; timestamp_unix=0; client_hostname_ip=0; client_username=0; http_reply_code=0; client_http_method=0; client_http_uri=0; web_hostname_ip=0; client_http_useragent=0; client_http_referer=0; client_http_cookie=0; server_remote_ip=0; client_http_host=0;
 
 debug1 = 0
 debug2 = 0
@@ -118,14 +119,18 @@ match_ip1 = re.compile( r'^\s*alert\s+ip\s+\S+\s+\S+\s+\-\>\s+(\d{1,3}\.\d{1,3}\
 
 ####################################################################################################
 
-squiddefault1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z\_]+\/(\S+)\s')
-squidua1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\"([^\"]+)\" \"([^\"]+)\" \"([^\"]+)\"(?:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?')
+#squiddefault1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(\S+)\s+\-\s+[A-Z\_]+\/(\S+)\s')
+squiddefault1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s)?(\d+\.\d+)\s+\d+\s+(\S+)\s+[A-Z\_]+\/(\d+)\s\d+\s+([A-Z]+)\s+(?:[^\:]*?\:\/\/)?([^\/]*?)(\/\S*)?\s+\-\s+[A-Z\_]+\/(\S+)\s')
+#squidua1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+([^\s]+)\s([^\s]+)\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\"([^\"]+)\" \"([^\"]+)\" \"([^\"]+)\"(?:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?')
+squidua1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?\d+\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[A-Z\_]+\/(\d+)\s+\-\s+\[(.*?)\]\s+\d+\s+(\S+)\s(?:[^\:]*?\:\/\/)?([^\/]*?)(\/\S*)?\s\-\s[^\/]+\/([^\s]+)\s[^\s]+\s\"([^\"]+)\" \"([^\"]+)\" \"([^\"]+)\"(?:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?')
 apache1 = re.compile( r'^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\-\s+(\S+)\s+\[([^\]]*?)\]\s+\"([^\s]+)\s(\S+)\s\S+\"\s(\d+)\s(?:\d+|\-)(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?(?:\s\"(.*?)\")?')
-tmg1 = re.compile( r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)')
+#tmg1 = re.compile( r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)')
+tmg1 = re.compile( r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(?:\w+\:\/\/)?([^\/]*?)(\/.*?)?(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)')
 bluecoat1c = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\"[^\"]*?\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?')
 bluecoatmethod2c = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(?:\-|\S+)\s\"[^\"]*?\"\s\S+\s(\d+)\s(\S+)\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s\d+\s\d+\s\-\s?')
 bluecoatmethod3c = re.compile( r'(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\d+)\s\S+\s\d+\s\d+\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\S+)\s(\S+)\s\S+\s\S+\s\S+\s(\S+)\s(?:\"([^\"]*?)\"|(\-))\s\S+\s(?:\"(?:[^\"]*?)\"|(?:\-))\s(?:\"(?:[^\"]*?)\"|(?:\-))\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
-mcafeewg1 = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?\s*\[([^\]]*?)\] \"([^\"]*?)\" \"[^\"]*?\" (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (0|\d{3}) \"([^\s]+)\s([^\s]+)\s[^\"]*?\" \"[^\"]*?\" \"[^\"]*?\" \"[^\"]*?\" \d+ \"([^\"]*)\" \"[^\"]*?\" \S+ (?:\S+)?$')
+#mcafeewg1 = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?\s*\[([^\]]*?)\] \"([^\"]*?)\" \"[^\"]*?\" (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (0|\d{3}) \"([^\s]+)\s([^\s]+)\s[^\"]*?\" \"[^\"]*?\" \"[^\"]*?\" \"[^\"]*?\" \d+ \"([^\"]*)\" \"[^\"]*?\" \S+ (?:\S+)?$')
+mcafeewg1 = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?\s*\[([^\]]*?)\] \"([^\"]*?)\" \"[^\"]*?\" (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (0|\d{3}) \"([^\s]+)\s(?:\w+\:\/\/)?([^\/]*?)(\/[^\s]*)?\s[^\"]*?\" \"[^\"]*?\" \"[^\"]*?\" \"[^\"]*?\" \d+ \"([^\"]*)\" \"[^\"]*?\" \S+ (?:\S+)?$')
 iismethod1 = re.compile( r'^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2} \d{2}\:\d{2}\:\d{2})\s(\S+)\s(\S+)\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s(\S+)\s(\S+)\s(\S+)\s(\d+)\s(\S+)\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s(\S+)\s(\d+)\s\d+\s\d+\s\d+\s\d+\s\d+')
 
 ####################################################################################################
@@ -545,6 +550,8 @@ def function_match_http_uri( lineet ):
  httpagentshort=0
  httpreferer=0
  pcrereferer=0
+ httphost=0
+ pcrehost=0
  tableauuri1=0
  tableauuridistance1=()
  tableauuridistance2=()
@@ -967,6 +974,107 @@ def function_match_http_uri( lineet ):
    pcrereferer = pcre_agent79
    pcre_agent79 = ""
 
+ if http_header68:
+  if re.search( r'\^Host\\x3A\\x20', http_header68, re.I ):
+   http_header68 = re.sub( r'\^Host\\x3A\\x20', r'^', http_header68, flags=re.I)
+   pcrehost = http_header68
+   http_header68 = ""
+  if re.search( r'\^Host\\x3A ', http_header68, re.I ):
+   http_header68 = re.sub( r'\^Host\\x3A ', r'^', http_header68, flags=re.I)
+   pcrehost = http_header68
+   http_header68 = ""
+  if re.search( r'(?<!\^)Host\\x3A\\x20', http_header68, re.I ):
+   http_header68 = re.sub( r'(?<!\^)Host\\x3A\\x20', r'^', http_header68, flags=re.I)
+   pcrehost = http_header68
+   http_header68 = ""
+  if re.search( r'(?<!\^)Host\\x3A ', http_header68, re.I ):
+   http_header68 = re.sub( r'(?<!\^)Host\\x3A ', r'^', http_header68, flags=re.I)
+   pcrehost = http_header68
+   http_header68 = ""
+  if re.search( r'\^Host\\x3A', http_header68, re.I ):
+   http_header68 = re.sub( r'\^Host\\x3A', r'^', http_header68, flags=re.I)
+   pcrehost = http_header68
+   http_header68 = ""
+  if re.search( r'(?<!\^)Host\\x3A', http_header68, re.I ):
+   http_header68 = re.sub( r'(?<!\^)Host\\x3A', r'^', http_header68, flags=re.I)
+   pcrehost = http_header68
+   http_header68 = ""
+ if http_header121:
+  if re.search( r'\^Host\\x3A\\x20', http_header121, re.I ):
+   http_header121 = re.sub( r'\^Host\\x3A\\x20', r'^', http_header121, flags=re.I)
+   pcrehost = http_header121
+   http_header121 = ""
+  if re.search( r'\^Host\\x3A ', http_header121, re.I ):
+   http_header121 = re.sub( r'\^Host\\x3A ', r'^', http_header121, flags=re.I)
+   pcrehost = http_header121
+   http_header121 = ""
+  if re.search( r'(?<!\^)Host\\x3A\\x20', http_header121, re.I ):
+   http_header121 = re.sub( r'(?<!\^)Host\\x3A\\x20', r'^', http_header121, flags=re.I)
+   pcrehost = http_header121
+   http_header121 = ""
+  if re.search( r'(?<!\^)Host\\x3A ', http_header121, re.I ):
+   http_header121 = re.sub( r'(?<!\^)Host\\x3A ', r'^', http_header121, flags=re.I)
+   pcrehost = http_header121
+   http_header121 = ""
+  if re.search( r'\^Host\\x3A', http_header121, re.I ):
+   http_header121 = re.sub( r'\^Host\\x3A', r'^', http_header121, flags=re.I)
+   pcrehost = http_header121
+   http_header121 = ""
+  if re.search( r'(?<!\^)Host\\x3A', http_header121, re.I ):
+   http_header121 = re.sub( r'(?<!\^)Host\\x3A', r'^', http_header121, flags=re.I)
+   pcrehost = http_header121
+   http_header121 = ""
+ if http_header74:
+  if re.search( r'\^Host\\x3A\\x20', http_header74, re.I ):
+   http_header74 = re.sub( r'\^Host\\x3A\\x20', r'^', http_header74, flags=re.I)
+   pcrehost = http_header74
+   http_header74 = ""
+  if re.search( r'\^Host\\x3A ', http_header74, re.I ):
+   http_header74 = re.sub( r'\^Host\\x3A ', r'^', http_header74, flags=re.I)
+   pcrehost = http_header74
+   http_header74 = ""
+  if re.search( r'(?<!\^)Host\\x3A\\x20', http_header74, re.I ):
+   http_header74 = re.sub( r'(?<!\^)Host\\x3A\\x20', r'^', http_header74, flags=re.I)
+   pcrehost = http_header74
+   http_header74 = ""
+  if re.search( r'(?<!\^)Host\\x3A ', http_header74, re.I ):
+   http_header74 = re.sub( r'(?<!\^)Host\\x3A ', r'^', http_header74, flags=re.I)
+   pcrehost = http_header74
+   http_header74 = ""
+  if re.search( r'\^Host\\x3A', http_header74, re.I ):
+   http_header74 = re.sub( r'\^Host\\x3A', r'^', http_header74, flags=re.I)
+   pcrehost = http_header74
+   http_header74 = ""
+  if re.search( r'(?<!\^)Host\\x3A', http_header74, re.I ):
+   http_header74 = re.sub( r'(?<!\^)Host\\x3A', r'^', http_header74, flags=re.I)
+   pcrehost = http_header74
+   http_header74 = ""
+ if pcre_agent79:
+  if re.search( r'\^Host\\x3A\\x20', pcre_agent79, re.I ):
+   pcre_agent79 = re.sub( r'\^Host\\x3A\\x20', r'^', pcre_agent79, flags=re.I)
+   pcrehost = pcre_agent79
+   pcre_agent79 = ""
+  if re.search( r'\^Host\\x3A ', pcre_agent79, re.I ):
+   pcre_agent79 = re.sub( r'\^Host\\x3A ', r'^', pcre_agent79, flags=re.I)
+   pcrehost = pcre_agent79
+   pcre_agent79 = ""
+  if re.search( r'(?<!\^)Host\\x3A\\x20', pcre_agent79, re.I ):
+   pcre_agent79 = re.sub( r'(?<!\^)Host\\x3A\\x20', r'^', pcre_agent79, flags=re.I)
+   pcrehost = pcre_agent79
+   pcre_agent79 = ""
+  if re.search( r'(?<!\^)Host\\x3A ', pcre_agent79, re.I ):
+   pcre_agent79 = re.sub( r'(?<!\^)Host\\x3A ', r'^', pcre_agent79, flags=re.I)
+   pcrehost = pcre_agent79
+   pcre_agent79 = ""
+  if re.search( r'\^Host\\x3A(?!\\x20)', pcre_agent79, re.I ):
+   pcre_agent79 = re.sub( r'\^Host\\x3A(?!\\x20)', r'^', pcre_agent79, flags=re.I)
+   pcrehost = pcre_agent79
+   pcre_agent79 = ""
+  if re.search( r'(?<!\^)Host\\x3A(?!\\x20)', pcre_agent79, re.I ):
+   pcre_agent79 = re.sub( r'(?<!\^)Host\\x3A(?!\\x20)', r'^', pcre_agent79, flags=re.I)
+   pcrehost = pcre_agent79
+   pcre_agent79 = ""
+
  if pcrereferer:
   pcrereferer=re.sub( r'\^\[\^\\r\\n\]\+\?', r'', pcrereferer, flags=re.I )
   pcrereferer=re.sub( r'\^\[\^\\r\\n\]\*\?', r'', pcrereferer, flags=re.I )
@@ -977,12 +1085,30 @@ def function_match_http_uri( lineet ):
   pcrereferer=re.sub( r'\^\[\^\\n\]\+', r'', pcrereferer, flags=re.I )
   pcrereferer=re.sub( r'\^\[\^\\n\]\*', r'', pcrereferer, flags=re.I )
 
+ if pcrehost:
+  pcrehost=re.sub( r'\^\[\^\\r\\n\]\+\?', r'', pcrehost, flags=re.I )
+  pcrehost=re.sub( r'\^\[\^\\r\\n\]\*\?', r'', pcrehost, flags=re.I )
+  pcrehost=re.sub( r'\^\[\^\\r\\n\]\+', r'', pcrehost, flags=re.I )
+  pcrehost=re.sub( r'\^\[\^\\r\\n\]\*', r'', pcrehost, flags=re.I )
+  pcrehost=re.sub( r'\^\[\^\\n\]\+\?', r'', pcrehost, flags=re.I )
+  pcrehost=re.sub( r'\^\[\^\\n\]\*\?', r'', pcrehost, flags=re.I )
+  pcrehost=re.sub( r'\^\[\^\\n\]\+', r'', pcrehost, flags=re.I )
+  pcrehost=re.sub( r'\^\[\^\\n\]\*', r'', pcrehost, flags=re.I )
+
  if pcrereferer and not re.search( r'\\x', pcrereferer ) and re.search( r'^\^', pcrereferer ) and not re.search( r'^\^\\\-\$$', pcrereferer ) and not re.search( r'\(\?\!', pcrereferer ):
   pcrereferer=re.sub( r'\\', r'', pcrereferer )
   pcrereferer=re.sub( r'^\^', r'', pcrereferer )
   pcrereferer=re.sub( r'\$$', r'', pcrereferer )
   httpreferer=pcrereferer
   pcrereferer=0
+
+ # special pcre checking for host!
+ if pcrehost and not re.search( r'\\x', pcrehost ) and re.search( r'^\^', pcrehost ) and not re.search( r'^\^\\\-\$$', pcrehost ) and not re.search( r'\(', pcrehost ):
+  pcrehost=re.sub( r'\\', r'', pcrehost )
+  pcrehost=re.sub( r'^\^', r'', pcrehost )
+  pcrehost=re.sub( r'\$$', r'', pcrehost )
+  httphost=pcrehost
+  pcrehost=0
 
  if pcre_agent79:
   pcre_agent79 = re.sub( r'\^\[\^\\r\\n\]\+\?', r'', pcre_agent79, flags=re.I )
@@ -993,10 +1119,6 @@ def function_match_http_uri( lineet ):
   pcre_agent79 = re.sub( r'\^\[\^\\n\]\*\?', r'', pcre_agent79, flags=re.I )
   pcre_agent79 = re.sub( r'\^\[\^\\n\]\+', r'', pcre_agent79, flags=re.I )
   pcre_agent79 = re.sub( r'\^\[\^\\n\]\*', r'', pcre_agent79, flags=re.I )
-
- if pcre_uri73:
-  pcre_uri73 = re.sub( r'^\^\\\\/', r'^(?:https?\\:\\/\\/)?[^\\/]*?\\\/', pcre_uri73, flags=re.I )
-  pcre_uri73 = re.sub( r'^\^\\\x2F', r'^(?:https?\\:\\/\\/)?[^\\/]*?\\\x2F', pcre_uri73, flags=re.I )
 
  # http_user_agent short
  if http_header68 and http_header74 and http_header121 and ( http_header68.__len__() >= ( http_header74.__len__() or http_header121.__len__() ) ):
@@ -1375,19 +1497,23 @@ def function_match_http_uri( lineet ):
  if debug1 and httppcreagent:       print("tableaupcreagent1: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase)))
  if debug1 and httpagentshort:      print("httpagentshort1: "+etmsg1+", "+httpagentshort.lower())
  if debug1 and http_method2:        print("tableauhttpmethod1: "+etmsg1+", "+str((http_method2, http_methodnocase3)))
- if debug1 and httpreferer:         print("httpreferer1: "+etmsg1+", "+httpreferer)
+ if debug1 and httpreferer:         print("httpreferer1: "+etmsg1+", "+httpreferer.lower())
  if debug1 and pcrereferer:         print("tableaupcrereferer1: "+etmsg1+", "+pcrereferer)
  if debug1 and tableauuridistance1: print("tableauuridistance1: "+etmsg1+", "+str(tableauuridistance1))
+ if debug1 and httphost:            print("httphost1: "+etmsg1+", "+httphost.lower())
+ if debug1 and pcrehost:            print("tableaupcrehost1: "+etmsg1+", "+pcrehost.lower())
 
  if httpuricourt:        dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if httpagentshort:      dict[(etmsg1, 'httpagentshort')] = httpagentshort.lower()
  if http_method2:        dict[(etmsg1, 'httpmethod')] = (http_method2, http_methodnocase3)
- if httpreferer:         dict[(etmsg1, 'httpreferer')] = httpreferer
+ if httpreferer:         dict[(etmsg1, 'httpreferer')] = httpreferer.lower()
  if pcrereferer:         dict[(etmsg1, 'pcrereferer')] = pcrereferer
  if abc1:                dict[(etmsg1, 'pcreuri')] = (abc1, abc1_nocase)
  if httppcreagent:       dict[(etmsg1, 'pcreagent')] = (httppcreagent, httppcreagent_nocase)
  if tableauuri1:         dict[(etmsg1, 'httpurilong')] = tableauuri1
  if tableauuridistance1: dict[(etmsg1, 'httpurilongdistance')] = tableauuridistance1
+ if httphost:            dict[(etmsg1, 'httphost')] = httphost.lower()
+ if pcrehost:            dict[(etmsg1, 'pcrehost')] = pcrehost.lower()
 
  return; # function_match_http_uri()
 
@@ -1549,10 +1675,6 @@ def function_match_uricontent( lineet ):
   elif re.search(        r'User\-Agent\\:$', http_header06, re.I):
    http_header06=""
   http_header06=re.sub(  r'\\x0D\\x0A', r'$', http_header06, flags=re.I)
-
- if pcre_uri20:
-  pcre_uri20 = re.sub( r'^\^\\\\/', r'^(?:https?\\:\\/\\/)?[^\\/]*?\\\/', pcre_uri20, flags=re.I )
-  pcre_uri20 = re.sub( r'^\^\\\x2F', r'^(?:https?\\:\\/\\/)?[^\\/]*?\\\x2F', pcre_uri20, flags=re.I )
 
  # http_user_agent short
  if http_header06:
@@ -1993,10 +2115,6 @@ def function_match_uriheader( lineet ):
   httpreferer=pcrereferer
   pcrereferer=0
 
- if pcre_uri23:
-  pcre_uri23 = re.sub( r'^\^\\\\/', r'^(?:https?\\:\\/\\/)?[^\\/]*?\\\/', pcre_uri23, flags=re.I )
-  pcre_uri23 = re.sub( r'^\^\\\x2F', r'^(?:https?\\:\\/\\/)?[^\\/]*?\\\x2F', pcre_uri23, flags=re.I )
-
  # http_user_agent short
  if http_header08 and http_header18 and ( http_header08.__len__() >= ( http_header18.__len__() ) ):
   httpagentshort = http_header08
@@ -2123,13 +2241,13 @@ def function_match_uriheader( lineet ):
  if debug1 and httppcreagent:  print("tableaupcreagent3: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase)))
  if debug1 and httpagentshort: print("httpagentshort3: "+etmsg1+", "+httpagentshort.lower())
  if debug1 and http_method2:   print("tableauhttpmethod3: "+etmsg1+", "+str((http_method2, http_methodnocase3)))
- if debug1 and httpreferer:    print("httpreferer3: "+etmsg1+", "+httpreferer)
+ if debug1 and httpreferer:    print("httpreferer3: "+etmsg1+", "+httpreferer.lower())
  if debug1 and pcrereferer:    print("tableaupcrereferer3: "+etmsg1+", "+pcrereferer)
 
  if httpuricourt:   dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if httpagentshort: dict[(etmsg1, 'httpagentshort')] = httpagentshort.lower()
  if http_method2:   dict[(etmsg1, 'httpmethod')] = (http_method2, http_methodnocase3)
- if httpreferer:    dict[(etmsg1, 'httpreferer')] = httpreferer
+ if httpreferer:    dict[(etmsg1, 'httpreferer')] = httpreferer.lower()
  if pcrereferer:    dict[(etmsg1, 'pcrereferer')] = pcrereferer
  if abc1:           dict[(etmsg1, 'pcreuri')] = (abc1, abc1_nocase)
  if httppcreagent:  dict[(etmsg1, 'pcreagent')] = (httppcreagent, httppcreagent_nocase)
@@ -2304,6 +2422,8 @@ def function_match_http_header( lineet ):
  httpagentshort=0
  httpreferer=0
  pcrereferer=0
+ httphost=0
+ pcrehost=0
  http_cookie=0
  cookiepcre=0
  tableauuri1=0
@@ -2558,12 +2678,123 @@ def function_match_http_header( lineet ):
    pcre_agent34 = ""
  if pcrereferer: pcrereferer = re.sub(  r'(?!^)\\x0D\\x0A', r'$', pcrereferer, flags=re.I)
 
+ if http_header03:
+  if re.search( r'\^Host\\x3A\\x20', http_header03, re.I ):
+   http_header03 = re.sub( r'\^Host\\x3A\\x20', r'^', http_header03, flags=re.I)
+   pcrehost = http_header03
+   http_header03 = ""
+  if re.search( r'\^Host\\x3A ', http_header03, re.I ):
+   http_header03 = re.sub( r'\^Host\\x3A ', r'^', http_header03, flags=re.I)
+   pcrehost = http_header03
+   http_header03 = ""
+  if re.search( r'(?<!\^)Host\\x3A\\x20', http_header03, re.I ):
+   http_header03 = re.sub( r'(?<!\^)Host\\x3A\\x20', r'^', http_header03, flags=re.I)
+   pcrehost = http_header03
+   http_header03 = ""
+  if re.search( r'(?<!\^)Host\\x3A ', http_header03, re.I ):
+   http_header03 = re.sub( r'(?<!\^)Host\\x3A ', r'^', http_header03, flags=re.I)
+   pcrehost = http_header03
+   http_header03 = ""
+  if re.search( r'\^Host\\x3A', http_header03, re.I ):
+   http_header03 = re.sub( r'\^Host\\x3A', r'^', http_header03, flags=re.I)
+   pcrehost = http_header03
+   http_header03 = ""
+  if re.search( r'(?<!\^)Host\\x3A', http_header03, re.I ):
+   http_header03 = re.sub( r'(?<!\^)Host\\x3A', r'^', http_header03, flags=re.I)
+   pcrehost = http_header03
+   http_header03 = ""
+ if http_header13:
+  if re.search( r'\^Host\\x3A\\x20', http_header13, re.I ):
+   http_header13 = re.sub( r'\^Host\\x3A\\x20', r'^', http_header13, flags=re.I)
+   pcrehost = http_header13
+   http_header13 = ""
+  if re.search( r'\^Host\\x3A ', http_header13, re.I ):
+   http_header13 = re.sub( r'\^Host\\x3A ', r'^', http_header13, flags=re.I)
+   pcrehost = http_header13
+   http_header13 = ""
+  if re.search( r'(?<!\^)Host\\x3A\\x20', http_header13, re.I ):
+   http_header13 = re.sub( r'(?<!\^)Host\\x3A\\x20', r'^', http_header13, flags=re.I)
+   pcrehost = http_header13
+   http_header13 = ""
+  if re.search( r'(?<!\^)Host\\x3A ', http_header13, re.I ):
+   http_header13 = re.sub( r'(?<!\^)Host\\x3A ', r'^', http_header13, flags=re.I)
+   pcrehost = http_header13
+   http_header13 = ""
+  if re.search( r'\^Host\\x3A', http_header13, re.I ):
+   http_header13 = re.sub( r'\^Host\\x3A', r'^', http_header13, flags=re.I)
+   pcrehost = http_header13
+   http_header13 = ""
+  if re.search( r'(?<!\^)Host\\x3A', http_header13, re.I ):
+   http_header13 = re.sub( r'(?<!\^)Host\\x3A', r'^', http_header13, flags=re.I)
+   pcrehost = http_header13
+   http_header13 = ""
+ if http_header23:
+  if re.search( r'\^Host\\x3A\\x20', http_header23, re.I ):
+   http_header23 = re.sub( r'\^Host\\x3A\\x20', r'^', http_header23, flags=re.I)
+   pcrehost = http_header23
+   http_header23 = ""
+  if re.search( r'\^Host\\x3A ', http_header23, re.I ):
+   http_header23 = re.sub( r'\^Host\\x3A ', r'^', http_header23, flags=re.I)
+   pcrehost = http_header23
+   http_header23 = ""
+  if re.search( r'(?<!\^)Host\\x3A\\x20', http_header23, re.I ):
+   http_header23 = re.sub( r'(?<!\^)Host\\x3A\\x20', r'^', http_header23, flags=re.I)
+   pcrehost = http_header23
+   http_header23 = ""
+  if re.search( r'(?<!\^)Host\\x3A ', http_header23, re.I ):
+   http_header23 = re.sub( r'(?<!\^)Host\\x3A ', r'^', http_header23, flags=re.I)
+   pcrehost = http_header23
+   http_header23 = ""
+  if re.search( r'\^Host\\x3A', http_header23, re.I ):
+   http_header23 = re.sub( r'\^Host\\x3A', r'^', http_header23, flags=re.I)
+   pcrehost = http_header23
+   http_header23 = ""
+  if re.search( r'(?<!\^)Host\\x3A', http_header23, re.I ):
+   http_header23 = re.sub( r'(?<!\^)Host\\x3A', r'^', http_header23, flags=re.I)
+   pcrehost = http_header23
+   http_header23 = ""
+ if pcre_agent34:
+  if re.search( r'\^Host\\x3A\\x20', pcre_agent34, re.I ):
+   pcre_agent34 = re.sub( r'\^Host\\x3A\\x20', r'^', pcre_agent34, flags=re.I)
+   pcrehost = pcre_agent34
+   pcre_agent34 = ""
+  if re.search( r'\^Host\\x3A ', pcre_agent34, re.I ):
+   pcre_agent34 = re.sub( r'\^Host\\x3A ', r'^', pcre_agent34, flags=re.I)
+   pcrehost = pcre_agent34
+   pcre_agent34 = ""
+  if re.search( r'(?<!\^)Host\\x3A\\x20', pcre_agent34, re.I ):
+   pcre_agent34 = re.sub( r'(?<!\^)Host\\x3A\\x20', r'^', pcre_agent34, flags=re.I)
+   pcrehost = pcre_agent34
+   pcre_agent34 = ""
+  if re.search( r'(?<!\^)Host\\x3A ', pcre_agent34, re.I ):
+   pcre_agent34 = re.sub( r'(?<!\^)Host\\x3A ', r'^', pcre_agent34, flags=re.I)
+   pcrehost = pcre_agent34
+   pcre_agent34 = ""
+  if re.search( r'\^Host\\x3A', pcre_agent34, re.I ):
+   pcre_agent34 = re.sub( r'\^Host\\x3A', r'^', pcre_agent34, flags=re.I)
+   pcre_agent34 = re.sub( r'(?!^)\\x0D\\x0A', r'$', pcre_agent34, flags=re.I)
+   pcrehost = pcre_agent34
+   pcre_agent34 = ""
+  if re.search( r'(?<!\^)Host\\x3A', pcre_agent34, re.I ):
+   pcre_agent34 = re.sub( r'(?<!\^)Host\\x3A', r'^', pcre_agent34, flags=re.I)
+   pcrehost = pcre_agent34
+   pcre_agent34 = ""
+ if pcrehost: pcrehost = re.sub(  r'(?!^)\\x0D\\x0A', r'$', pcrehost, flags=re.I)
+
  if pcrereferer and not re.search( r'\\x', pcrereferer ) and re.search( r'^\^', pcrereferer ) and not re.search( r'^\^\\\-\$$', pcrereferer ) and not re.search( r'\(\?\!', pcrereferer ):
   pcrereferer=re.sub( r'\\', r'', pcrereferer )
   pcrereferer=re.sub( r'^\^', r'', pcrereferer )
   pcrereferer=re.sub( r'\$$', r'', pcrereferer )
   httpreferer=pcrereferer
   pcrereferer=0
+
+ # special pcre checking for host!
+ if pcrehost and not re.search( r'\\x', pcrehost ) and re.search( r'^\^', pcrehost ) and not re.search( r'^\^\\\-\$$', pcrehost ) and not re.search( r'\(', pcrehost ):
+  pcrehost=re.sub( r'\\', r'', pcrehost )
+  pcrehost=re.sub( r'^\^', r'', pcrehost )
+  pcrehost=re.sub( r'\$$', r'', pcrehost )
+  httphost=pcrehost
+  pcrehost=0
 
  if http_header03:
   if re.search( r'\\x0d\\x0aCookie\\x3A (?!$)', http_header03, re.I ):
@@ -2690,10 +2921,6 @@ def function_match_http_header( lineet ):
   pcre_agent34 = re.sub( r'\^\[\^\\n\]\*\?', r'', pcre_agent34, flags=re.I )
   pcre_agent34 = re.sub( r'\^\[\^\\n\]\+', r'', pcre_agent34, flags=re.I )
   pcre_agent34 = re.sub( r'\^\[\^\\n\]\*', r'', pcre_agent34, flags=re.I )
-
- if pcre_uri33:
-  pcre_uri33 = re.sub( r'^\^\\\\/', r'^(?:https?\\:\\/\\/)?[^\\/]*?\\\/', pcre_uri33, flags=re.I )
-  pcre_uri33 = re.sub( r'^\^\\\x2F', r'^(?:https?\\:\\/\\/)?[^\\/]*?\\\x2F', pcre_uri33, flags=re.I )
 
  #if( $pcre_agent34 && $http_header03 && ( $pcre_agent34 =~ /^\^\[\^(?:\\r)?\\n(?:\\r)?\]\+(.*)$/ ) && ( $http_header03 eq $1 ) ) { $okremiseazeropcreagent34=1 }
  #if( $pcre_agent34 && $http_header13 && ( $pcre_agent34 =~ /^\^\[\^(?:\\r)?\\n(?:\\r)?\]\+(.*)$/ ) && ( $http_header13 eq $1 ) ) { $okremiseazeropcreagent34=1 }
@@ -2932,6 +3159,8 @@ def function_match_http_header( lineet ):
  if debug1 and pcrereferer:    print("tableaupcrereferer4: "+etmsg1+", "+pcrereferer)
  if debug1 and http_cookie:    print("tableauhttpcookie4: "+etmsg1+", "+str((http_cookie, http_cookie_nocase)))
  if debug1 and cookiepcre:     print("tableaupcrecookie4: "+etmsg1+", "+cookiepcre)
+ if debug1 and httphost:       print("httphost4: "+etmsg1+", "+httphost.lower())
+ if debug1 and pcrehost:       print("tableaupcrehost4: "+etmsg1+", "+pcrehost.lower())
 
  if httpuricourt:   dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if httpagentshort: dict[(etmsg1, 'httpagentshort')] = httpagentshort.lower()
@@ -2943,6 +3172,8 @@ def function_match_http_header( lineet ):
  if tableauuri1:    dict[(etmsg1, 'httpurilong')] = tableauuri1
  if http_cookie:    dict[(etmsg1, 'httpcookie')] = (http_cookie, http_cookie_nocase)
  if cookiepcre:     dict[(etmsg1, 'pcrecookie')] = cookiepcre
+ if httphost:       dict[(etmsg1, 'httphost')] = httphost.lower()
+ if pcrehost:       dict[(etmsg1, 'pcrehost')] = pcrehost.lower()
 
  return; # function_match_http_header()
 
@@ -3037,10 +3268,6 @@ def function_match_http_cookie( lineet ):
   http_cookie=re.sub(  r'(?:\^|\$)', r'', http_cookie)
  elif http_cookie and re.search( r'\\', http_cookie ):
   http_cookie=re.sub(  r'\\', r'', http_cookie)
-
- if pcre_uri13:
-  pcre_uri13 = re.sub( r'^\^\\\\/', r'^(?:https?\\:\\/\\/)?[^\\/]*?\\\/', pcre_uri13, flags=re.I )
-  pcre_uri13 = re.sub( r'^\^\\\x2F', r'^(?:https?\\:\\/\\/)?[^\\/]*?\\\x2F', pcre_uri13, flags=re.I )
 
  if pcre_uri13 and http_uri03 and ( http_uri03.lower() in pcre_uri13.lower() ):
   http_uri03=""
@@ -3174,7 +3401,7 @@ def function_logsandsearch( looplogs):
  #$output_escape = printable($_);
  if debug2: print("rawproxy: "+output_escape)
 
- timestamp_central=0; server_hostname_ip=0; timestamp_unix=0; client_hostname_ip=0; client_username=0; http_reply_code=0; client_http_method=0; client_http_uri=0; web_hostname_ip=0; client_http_useragent=0; client_http_referer=0; client_http_cookie=0; server_remote_ip=0;
+ timestamp_central=0; server_hostname_ip=0; timestamp_unix=0; client_hostname_ip=0; client_username=0; http_reply_code=0; client_http_method=0; client_http_uri=0; web_hostname_ip=0; client_http_useragent=0; client_http_referer=0; client_http_cookie=0; client_http_host=0; server_remote_ip=0;
 
  squiddefault2 = squiddefault1.search( output_escape )
  squidua2 = squidua1.search( output_escape )
@@ -3200,7 +3427,8 @@ def function_logsandsearch( looplogs):
 # without syslog header:
 #1406207792.966 120930 192.168.8.3 TCP_MISS/200 111285 CONNECT https://i1.ytimg.com:443 - DEFAULT_PARENT/127.0.0.1 -
  elif squiddefault2:
-  timestamp_central=squiddefault2.group(1); server_hostname_ip=squiddefault2.group(2); timestamp_unix=squiddefault2.group(3); client_hostname_ip=squiddefault2.group(4); http_reply_code=squiddefault2.group(5); client_http_method=squiddefault2.group(6); client_http_uri=squiddefault2.group(7); web_hostname_ip=squiddefault2.group(8);
+  #timestamp_central=squiddefault2.group(1); server_hostname_ip=squiddefault2.group(2); timestamp_unix=squiddefault2.group(3); client_hostname_ip=squiddefault2.group(4); http_reply_code=squiddefault2.group(5); client_http_method=squiddefault2.group(6); client_http_uri=squiddefault2.group(7); web_hostname_ip=squiddefault2.group(8);
+  timestamp_central=squiddefault2.group(1); server_hostname_ip=squiddefault2.group(2); timestamp_unix=squiddefault2.group(3); client_hostname_ip=squiddefault2.group(4); http_reply_code=squiddefault2.group(5); client_http_method=squiddefault2.group(6); client_http_host=squiddefault2.group(7); client_http_uri=squiddefault2.group(8); web_hostname_ip=squiddefault2.group(9);
   if not squiddefault2.group(1): timestamp_central="N/A"
   if not squiddefault2.group(2): server_hostname_ip="N/A"
   if debug2: print("passage dans squid default regexp.")
@@ -3220,7 +3448,8 @@ def function_logsandsearch( looplogs):
 # add cookie + remote_ip :
 # 2013-11-23T02:09:29.909623+01:00 hostname programname:   142 192.168.1.2 TCP_MISS/200 - [23/Nov/2013:02:09:22 +0100] 1890 GET http://etplc.org/ - HIER_DIRECT/etplc.org text/html "Wget/1.13.4 (linux-gnu)" "-" "fGGhTasdas=http" 8.8.8.8
  elif squidua2:
-  timestamp_central=squidua2.group(1); server_hostname_ip=squidua2.group(2); client_hostname_ip=squidua2.group(3); http_reply_code=squidua2.group(4); timestamp_unix=squidua2.group(5); client_http_method=squidua2.group(6); client_http_uri=squidua2.group(7); web_hostname_ip=squidua2.group(8); client_http_useragent=squidua2.group(9); client_http_referer=squidua2.group(10); client_http_cookie=squidua2.group(11); server_remote_ip=squidua2.group(12);
+  #timestamp_central=squidua2.group(1); server_hostname_ip=squidua2.group(2); client_hostname_ip=squidua2.group(3); http_reply_code=squidua2.group(4); timestamp_unix=squidua2.group(5); client_http_method=squidua2.group(6); client_http_uri=squidua2.group(7); web_hostname_ip=squidua2.group(8); client_http_useragent=squidua2.group(9); client_http_referer=squidua2.group(10); client_http_cookie=squidua2.group(11); server_remote_ip=squidua2.group(12);
+  timestamp_central=squidua2.group(1); server_hostname_ip=squidua2.group(2); client_hostname_ip=squidua2.group(3); http_reply_code=squidua2.group(4); timestamp_unix=squidua2.group(5); client_http_method=squidua2.group(6); client_http_host=squidua2.group(7); client_http_uri=squidua2.group(8); web_hostname_ip=squidua2.group(9); client_http_useragent=squidua2.group(10); client_http_referer=squidua2.group(11); client_http_cookie=squidua2.group(12); server_remote_ip=squidua2.group(13);
   if not squidua2.group(1): timestamp_central="N/A"
   if not squidua2.group(2): server_hostname_ip="N/A"
   if debug2: print("passage dans squid added User-Agent regexp.")
@@ -3254,7 +3483,8 @@ def function_logsandsearch( looplogs):
 #10.0.0.1       DOMAINE\USERNAME        Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0) 2013-06-21      00:00:13        SERVERNAME      -       -       10.0.0.2        8085    0       1695    1532    SSL-tunnel      -       www.marketscore.com:443 Upstream        0
 #10.0.0.1       DOMAINE\USERNAME        Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0) 2013-06-21      00:00:24        SERVERNAME      -       www.marketscore.com     10.0.0.2        443     31      938     448     SSL-tunnel      CONNECT -       -       12210
  elif tmg2:
-  client_hostname_ip=tmg2.group(1); client_username=tmg2.group(2); client_http_useragent=tmg2.group(3); timestamp_central=tmg2.group(4)+" "+tmg2.group(5); server_hostname_ip=tmg2.group(6); client_http_referer=tmg2.group(7); client_http_method=tmg2.group(9); client_http_uri=tmg2.group(10); http_reply_code=tmg2.group(11);
+  #client_hostname_ip=tmg2.group(1); client_username=tmg2.group(2); client_http_useragent=tmg2.group(3); timestamp_central=tmg2.group(4)+" "+tmg2.group(5); server_hostname_ip=tmg2.group(6); client_http_referer=tmg2.group(7); client_http_method=tmg2.group(9); client_http_uri=tmg2.group(10); http_reply_code=tmg2.group(11);
+  client_hostname_ip=tmg2.group(1); client_username=tmg2.group(2); client_http_useragent=tmg2.group(3); timestamp_central=tmg2.group(4)+" "+tmg2.group(5); server_hostname_ip=tmg2.group(6); client_http_referer=tmg2.group(7); client_http_method=tmg2.group(9); client_http_host=tmg2.group(10); client_http_uri=tmg2.group(11); http_reply_code=tmg2.group(12);
   # https/ssl-tunnel:
   if client_http_uri == "-" and tmg2.group(8) != "-":
    client_http_uri=tmg2.group(8)
@@ -3271,15 +3501,18 @@ def function_logsandsearch( looplogs):
  # elsif( $12 eq "-" && $8 eq "tcp" ) { $client_http_uri="$9$11" }
  # print "passage dans BlueCoat sans http_method regexp.\n" if $debug2;
  elif bluecoat1a:
-  server_hostname_ip=bluecoat1a.group(1); timestamp_central=bluecoat1a.group(2)+" "+bluecoat1a.group(3); client_hostname_ip=bluecoat1a.group(4); client_username=bluecoat1a.group(5); http_reply_code=bluecoat1a.group(6); client_http_referer=bluecoat1a.group(7); client_http_uri=bluecoat1a.group(8)+":\/\/"+bluecoat1a.group(9)+bluecoat1a.group(11)+bluecoat1a.group(12); client_http_useragent=bluecoat1a.group(13);
-  if bluecoat1a.group(8) == "tcp" and bluecoat1a.group(12) != "-":
-   client_http_uri=bluecoat1a.group(9)
+  #server_hostname_ip=bluecoat1a.group(1); timestamp_central=bluecoat1a.group(2)+" "+bluecoat1a.group(3); client_hostname_ip=bluecoat1a.group(4); client_username=bluecoat1a.group(5); http_reply_code=bluecoat1a.group(6); client_http_referer=bluecoat1a.group(7); client_http_uri=bluecoat1a.group(8)+":\/\/"+bluecoat1a.group(9)+bluecoat1a.group(11)+bluecoat1a.group(12); client_http_useragent=bluecoat1a.group(13);
+  server_hostname_ip=bluecoat1a.group(1); timestamp_central=bluecoat1a.group(2)+" "+bluecoat1a.group(3); client_hostname_ip=bluecoat1a.group(4); client_username=bluecoat1a.group(5); http_reply_code=bluecoat1a.group(6); client_http_referer=bluecoat1a.group(7); client_http_host=bluecoat1a.group(9); client_http_uri=bluecoat1a.group(11)+bluecoat1a.group(12); client_http_useragent=bluecoat1a.group(13);
+  #if bluecoat1a.group(8) == "tcp" and bluecoat1a.group(12) != "-":
+  # client_http_uri=bluecoat1a.group(9)
   if not bluecoat1a.group(13):
    client_http_useragent=bluecoat1a.group(14)
   if bluecoat1a.group(12) == "-" and bluecoat1a.group(8) != "tcp":
-   client_http_uri=bluecoat1a.group(8)+":\/\/"+bluecoat1a.group(9)+bluecoat1a.group(11)
+   client_http_uri=bluecoat1a.group(11)
+   #client_http_uri=bluecoat1a.group(8)+":\/\/"+bluecoat1a.group(9)+bluecoat1a.group(11)
   elif bluecoat1a.group(12) == "-" and bluecoat1a.group(8) == "tcp":
-   client_http_uri=bluecoat1a.group(9)+bluecoat1a.group(11)
+   client_http_uri=bluecoat1a.group(11)
+   #client_http_uri=bluecoat1a.group(9)+bluecoat1a.group(11)
   if debug2: print("passage dans BlueCoat 1 sans http_method regexp.")
 
 
@@ -3290,15 +3523,18 @@ def function_logsandsearch( looplogs):
 # Oct 10 11:10:21 10.0.0.1/10.0.0.1 2013-10-10 11:10:23 15 10.0.0.2 user group \"none\" CATEGORY 204 - TCP_NC_MISS text/html GET http www.test.com 80 /path ?arg=1 \"Mozilla/4.0\" 10.0.0.3 321 491 -
 # Oct 10 11:10:21 10.0.0.1/10.0.0.1 2013-10-10 11:10:24 1 10.0.0.2 - - \"none\" CATEGORY 407 - TCP_DENIED - CONNECT tcp www.test.com 443 / - \"Mozilla/4.0\" 10.0.0.3 330 308 -
  elif bluecoatmethod2a:
-  server_hostname_ip=bluecoatmethod2a.group(1); timestamp_central=bluecoatmethod2a.group(2)+" "+bluecoatmethod2a.group(3); client_hostname_ip=bluecoatmethod2a.group(4); client_username=bluecoatmethod2a.group(5); http_reply_code=bluecoatmethod2a.group(6); client_http_referer=bluecoatmethod2a.group(7); client_http_method=bluecoatmethod2a.group(8); client_http_uri=bluecoatmethod2a.group(9)+":\/\/"+bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)+bluecoatmethod2a.group(13); client_http_useragent=bluecoatmethod2a.group(14);
-  if bluecoatmethod2a.group(9) == "tcp" and bluecoatmethod2a.group(13) != "-":
-   client_http_uri=bluecoatmethod2a.group(10)
+  #server_hostname_ip=bluecoatmethod2a.group(1); timestamp_central=bluecoatmethod2a.group(2)+" "+bluecoatmethod2a.group(3); client_hostname_ip=bluecoatmethod2a.group(4); client_username=bluecoatmethod2a.group(5); http_reply_code=bluecoatmethod2a.group(6); client_http_referer=bluecoatmethod2a.group(7); client_http_method=bluecoatmethod2a.group(8); client_http_uri=bluecoatmethod2a.group(9)+":\/\/"+bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)+bluecoatmethod2a.group(13); client_http_useragent=bluecoatmethod2a.group(14);
+  server_hostname_ip=bluecoatmethod2a.group(1); timestamp_central=bluecoatmethod2a.group(2)+" "+bluecoatmethod2a.group(3); client_hostname_ip=bluecoatmethod2a.group(4); client_username=bluecoatmethod2a.group(5); http_reply_code=bluecoatmethod2a.group(6); client_http_referer=bluecoatmethod2a.group(7); client_http_method=bluecoatmethod2a.group(8); client_http_host=bluecoatmethod2a.group(10); client_http_uri=bluecoatmethod2a.group(12)+bluecoatmethod2a.group(13); client_http_useragent=bluecoatmethod2a.group(14);
+  #if bluecoatmethod2a.group(9) == "tcp" and bluecoatmethod2a.group(13) != "-":
+  # client_http_uri=bluecoatmethod2a.group(10)
   if not bluecoatmethod2a.group(13):
    client_http_useragent=bluecoatmethod2a.group(14)
   if bluecoatmethod2a.group(13) == "-" and bluecoatmethod2a.group(9) != "tcp":
-   client_http_uri=bluecoatmethod2a.group(9)+":\/\/"+bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)
+   client_http_uri=bluecoatmethod2a.group(12)
+   #client_http_uri=bluecoatmethod2a.group(9)+":\/\/"+bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)
   elif bluecoatmethod2a.group(13) == "-" and bluecoatmethod2a.group(9) == "tcp":
-   client_http_uri=bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)
+   client_http_uri=bluecoatmethod2a.group(12)
+   #client_http_uri=bluecoatmethod2a.group(10)+bluecoatmethod2a.group(12)
   if debug2: print("passage dans BlueCoat 2 avec http_method regexp.")
 
 
@@ -3309,13 +3545,16 @@ def function_logsandsearch( looplogs):
 #2014-12-27 19:36:58 27 10.0.0.1 200 TCP_NC_MISS 411 731 GET http www.google.fr 80 /6407654/ ?label=All - - www.google.fr image/gif http://www.test.fr/ "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20130416 Firefox/20.0" OBSERVED "Search Engines/Portals" - 172.16.0.1
 #2014-12-27 19:36:59 1 10.0.0.1 0 DENIED 0 0 unknown ssl webanalytics.btelligent.net 443 / - - - webanalytics.btelligent.net - - - DENIED "Placeholders" - 172.16.0.1
  elif bluecoatmethod3a:
-  server_hostname_ip=bluecoatmethod3a.group(1); timestamp_central=bluecoatmethod3a.group(2)+" "+bluecoatmethod3a.group(3); client_hostname_ip=bluecoatmethod3a.group(4); http_reply_code=bluecoatmethod3a.group(5); client_http_method=bluecoatmethod3a.group(6); client_http_uri=bluecoatmethod3a.group(7)+":\/\/"+bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)+bluecoatmethod3a.group(11); client_username=bluecoatmethod3a.group(12); client_http_referer=bluecoatmethod3a.group(13); client_http_useragent=bluecoatmethod3a.group(14); server_remote_ip=bluecoatmethod3a.group(16);
-  if bluecoatmethod3a.group(7) == "tcp" and bluecoatmethod3a.group(11) != "-":
-   client_http_uri=bluecoatmethod3a.group(8)
+  #server_hostname_ip=bluecoatmethod3a.group(1); timestamp_central=bluecoatmethod3a.group(2)+" "+bluecoatmethod3a.group(3); client_hostname_ip=bluecoatmethod3a.group(4); http_reply_code=bluecoatmethod3a.group(5); client_http_method=bluecoatmethod3a.group(6); client_http_uri=bluecoatmethod3a.group(7)+":\/\/"+bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)+bluecoatmethod3a.group(11); client_username=bluecoatmethod3a.group(12); client_http_referer=bluecoatmethod3a.group(13); client_http_useragent=bluecoatmethod3a.group(14); server_remote_ip=bluecoatmethod3a.group(16);
+  server_hostname_ip=bluecoatmethod3a.group(1); timestamp_central=bluecoatmethod3a.group(2)+" "+bluecoatmethod3a.group(3); client_hostname_ip=bluecoatmethod3a.group(4); http_reply_code=bluecoatmethod3a.group(5); client_http_method=bluecoatmethod3a.group(6); client_http_host=bluecoatmethod3a.group(8); client_http_uri=bluecoatmethod3a.group(10)+bluecoatmethod3a.group(11); client_username=bluecoatmethod3a.group(12); client_http_referer=bluecoatmethod3a.group(13); client_http_useragent=bluecoatmethod3a.group(14); server_remote_ip=bluecoatmethod3a.group(16);
+  #if bluecoatmethod3a.group(7) == "tcp" and bluecoatmethod3a.group(11) != "-":
+  # client_http_uri=bluecoatmethod3a.group(8)
   if bluecoatmethod3a.group(11) == "-" and bluecoatmethod3a.group(7) != "tcp":
-   client_http_uri=bluecoatmethod3a.group(7)+":\/\/"+bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)
+   client_http_uri=bluecoatmethod3a.group(10)
+   #client_http_uri=bluecoatmethod3a.group(7)+":\/\/"+bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)
   elif bluecoatmethod3a.group(11) == "-" and bluecoatmethod3a.group(7) == "tcp":
-   client_http_uri=bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)
+   client_http_uri=bluecoatmethod3a.group(10)
+   #client_http_uri=bluecoatmethod3a.group(8)+bluecoatmethod3a.group(10)
   if debug2: print("passage dans BlueCoat 3 avec http_method regexp.")
 
 
@@ -3325,8 +3564,9 @@ def function_logsandsearch( looplogs):
 # [1/Mar/2014:17:34:11 +0200] \"\" \"\" 10.1.1.1 200 \"CONNECT ssl.google-analytics.com:443 HTTP/1.1\" \"Internet Services\" \"3 (Minimal Risk)\" \"\" 6847 \"Mozilla/5.0 (compatible; MSIE 11.0; Windows NT 7.1; Trident/5.0)\" \"\" Cache=\"TCP_MISS\" nexthopname.com
 # 2013-11-22T22:01:49.577030+01:00 hostname programname: [1/Mar/2014:17:34:11 +0200] \"\" \"\" 10.1.1.1 200 \"CONNECT ssl.google-analytics.com:443 HTTP/1.1\" \"Internet Services\" \"3 (Minimal Risk)\" \"\" 6847 \"Mozilla/5.0 (compatible; MSIE 11.0; Windows NT 7.1; Trident/5.0)\" \"\" Cache=\"TCP_MISS\" nexthopname.com
  elif mcafeewg2:
-  server_hostname_ip=mcafeewg2.group(1); timestamp_central=mcafeewg2.group(2); client_username=mcafeewg2.group(3); client_hostname_ip=mcafeewg2.group(4); http_reply_code=mcafeewg2.group(5); client_http_method=mcafeewg2.group(6); client_http_uri=mcafeewg2.group(7); client_http_useragent=mcafeewg2.group(8);
-  if not mcafeewg2.group(8):
+  #server_hostname_ip=mcafeewg2.group(1); timestamp_central=mcafeewg2.group(2); client_username=mcafeewg2.group(3); client_hostname_ip=mcafeewg2.group(4); http_reply_code=mcafeewg2.group(5); client_http_method=mcafeewg2.group(6); client_http_uri=mcafeewg2.group(7); client_http_useragent=mcafeewg2.group(8);
+  server_hostname_ip=mcafeewg2.group(1); timestamp_central=mcafeewg2.group(2); client_username=mcafeewg2.group(3); client_hostname_ip=mcafeewg2.group(4); http_reply_code=mcafeewg2.group(5); client_http_method=mcafeewg2.group(6); client_http_host=mcafeewg2.group(7); client_http_uri=mcafeewg2.group(8); client_http_useragent=mcafeewg2.group(9);
+  if not mcafeewg2.group(9):
    client_http_useragent="-"
   if debug2: print("passage dans McAfee default regexp.")
 
@@ -3337,11 +3577,12 @@ def function_logsandsearch( looplogs):
 # 2015-01-23 15:45:19 W3SVC2 DOFR01 10.0.0.2 GET /download/downloadUrl.asp file=../../../../../../../etc/passwd 80 - 10.94.210.10 Mozilla/5.0+(X11;+Linux+x86_64)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/39.0.2171.95+Safari/537.36 - 200 0 0 195 847 31
 # 2015-01-23 15:50:53 W3SVC2 DOFR01 10.0.0.2 GET /download/downloadUrl.asp file=../../etc/passwd 80 - 10.94.210.10 Mozilla/5.0+(Macintosh;+Intel+Mac+OS+X+10_10_1)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/39.0.2171.95+Safari/537.36 - 200 0 0 195 818 15
  elif iismethod2:
-  timestamp_central=iismethod2.group(2); server_hostname_ip=iismethod2.group(4); client_http_method=iismethod2.group(5); client_http_uri=":\/\/"+iismethod2.group(3)+iismethod2.group(6); client_username=iismethod2.group(9); client_hostname_ip=iismethod2.group(10); client_http_useragent=iismethod2.group(11); client_http_referer=iismethod2.group(12); http_reply_code=iismethod2.group(13);
-  if iismethod2.group(8) == "443":
-   client_http_uri="https"+client_http_uri
-  else:
-   client_http_uri="http"+client_http_uri
+  #timestamp_central=iismethod2.group(2); server_hostname_ip=iismethod2.group(4); client_http_method=iismethod2.group(5); client_http_uri=":\/\/"+iismethod2.group(3)+iismethod2.group(6); client_username=iismethod2.group(9); client_hostname_ip=iismethod2.group(10); client_http_useragent=iismethod2.group(11); client_http_referer=iismethod2.group(12); http_reply_code=iismethod2.group(13);
+  timestamp_central=iismethod2.group(2); server_hostname_ip=iismethod2.group(4); client_http_method=iismethod2.group(5); client_http_uri=iismethod2.group(3); client_http_uri=iismethod2.group(6); client_username=iismethod2.group(9); client_hostname_ip=iismethod2.group(10); client_http_useragent=iismethod2.group(11); client_http_referer=iismethod2.group(12); http_reply_code=iismethod2.group(13);
+  #if iismethod2.group(8) == "443":
+  # client_http_uri="https"+client_http_uri
+  #else:
+  # client_http_uri="http"+client_http_uri
   if not iismethod2.group(7) == "-":
    client_http_uri=client_http_uri+"?"+iismethod2.group(7)
   client_http_useragent = re.sub( r"\+", " ", client_http_useragent )
@@ -3368,6 +3609,7 @@ def function_logsandsearch( looplogs):
  if client_http_useragent and debug2: sys.stdout.write( ", client_http_useragent: "+client_http_useragent )
  if client_http_referer and debug2: sys.stdout.write( ", client_http_referer: "+client_http_referer )
  if client_http_cookie and debug2: sys.stdout.write( ", client_http_cookie: "+client_http_cookie )
+ if client_http_host and debug2: sys.stdout.write( ", client_http_host: "+client_http_host )
  if server_remote_ip and debug2: sys.stdout.write( ", server_remote_ip: "+server_remote_ip )
  if timestamp_central and debug2: sys.stdout.write( "\n" )
 
@@ -3394,7 +3636,7 @@ def function_logsandsearch( looplogs):
 ####################################################################################################
 
  jump=0 # required here for global variables
- if client_http_uri:
+ if client_http_uri or client_http_host:
   etmsg=0
   foundmethod=0
   founduricourt=0
@@ -3408,6 +3650,8 @@ def function_logsandsearch( looplogs):
   foundcookie=0
   foundpcrecookie=0
   foundremoteip=0
+  foundhost=0
+  foundpcrehost=0
   etmsg_old=0
   paslememe=0
 
@@ -3431,7 +3675,7 @@ def function_logsandsearch( looplogs):
     jump=0 # required here for global variables
     paslememe=1
 
-   if paslememe and not jump and ( foundmethod or founduricourt or foundurilong or foundurilongdistance or foundagent or foundreferer or foundpcrereferer or foundpcreagent or foundcookie or foundpcrecookie or foundpcreuri or foundremoteip ):
+   if paslememe and not jump and ( foundmethod or founduricourt or foundurilong or foundurilongdistance or foundagent or foundreferer or foundpcrereferer or foundpcreagent or foundcookie or foundpcrecookie or foundpcreuri or foundremoteip or foundhost or foundpcrehost ):
     if debug2: print("ok ici10")
     alertetplc = "ok trouvé: "
     if timestamp_central:     alertetplc += "timestamp: "+timestamp_central+", "
@@ -3443,6 +3687,7 @@ def function_logsandsearch( looplogs):
     if client_http_useragent: alertetplc += "client_http_useragent: "+client_http_useragent+", "
     if client_http_referer:   alertetplc += "client_http_referer: "+client_http_referer+", "
     if client_http_cookie:    alertetplc += "client_http_cookie: "+client_http_cookie+", "
+    if client_http_host:      alertetplc += "client_http_host: "+client_http_host+", "
     if server_remote_ip:      alertetplc += "server_remote_ip: "+server_remote_ip+", "
     if http_reply_code:       alertetplc += "http_reply_code: "+http_reply_code+", "
     if etmsg:                 alertetplc += "etmsg: "+etmsg_old
@@ -3458,6 +3703,8 @@ def function_logsandsearch( looplogs):
     if foundpcrecookie:       alertetplc += ", etpcrecookie: "+foundpcrecookie
     if foundpcreuri:          alertetplc += ", etpcreuri: "+foundpcreuri
     if foundremoteip:         alertetplc += ", etremoteip: "+foundremoteip
+    if foundhost:             alertetplc += ", ethost: "+foundhost
+    if foundpcrehost:         alertetplc += ", etpcrehost: "+foundpcrehost
     alertetplc += "\n"
     if args.s:
      syslog.sendall( socketgethostname+" etplc: "+alertetplc )
@@ -3478,6 +3725,8 @@ def function_logsandsearch( looplogs):
     foundpcrecookie=0
     foundpcreuri=0
     foundremoteip=0
+    foundhost=0
+    foundpcrehost=0
 
    etmsg_old=etmsg
    if debug2: print("hash2 etmsg: "+etmsg+", clef: "+clef+", values: "+str(values))
@@ -3505,15 +3754,17 @@ def function_logsandsearch( looplogs):
      foundpcrecookie=0
      foundpcreuri=0
      foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
      next
 
    elif clef == "httpuricourt" and not jump:
     if debug2: print("ok ici2")
-    if client_http_uri and values in client_http_uri.lower():
-     if debug2: print("ici2: "+values)
-     founduricourt=values
+    if client_http_uri and str(values) in client_http_uri.lower():
+     if debug2: print("ici2: "+str(values))
+     founduricourt=str(values)
     elif values:
-     if debug2: print("urishort not found: jump ("+values+")")
+     if debug2: print("urishort not found: jump ("+str(values)+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3527,6 +3778,8 @@ def function_logsandsearch( looplogs):
      foundpcrecookie=0
      foundpcreuri=0
      foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
      next
 
    elif clef == "httpurilong" and not jump:
@@ -3550,6 +3803,8 @@ def function_logsandsearch( looplogs):
       foundpcrecookie=0
       foundpcreuri=0
       foundremoteip=0
+      foundhost=0
+      foundpcrehost=0
       next
 
    elif clef == "httpurilongdistance" and not jump:
@@ -3573,15 +3828,17 @@ def function_logsandsearch( looplogs):
       foundpcrecookie=0
       foundpcreuri=0
       foundremoteip=0
+      foundhost=0
+      foundpcrehost=0
       next
 
    elif clef == "httpagentshort" and not jump:
     if debug2: print("ok ici4")
-    if client_http_useragent and values in client_http_useragent.lower():
-     if debug2: print("ici4: "+values)
-     foundagent=values
+    if client_http_useragent and str(values) in client_http_useragent.lower():
+     if debug2: print("ici4: "+str(values))
+     foundagent=str(values)
     elif values:
-     if debug2: print("agent not found: jump ("+values+")")
+     if debug2: print("agent not found: jump ("+str(values)+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3595,15 +3852,17 @@ def function_logsandsearch( looplogs):
      foundpcrecookie=0
      foundpcreuri=0
      foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
      next
 
    elif clef == "httpreferer" and not jump:
     if debug2: print("ok ici10")
-    if client_http_referer and values in client_http_referer.lower():
-     if debug2: print("ici10a: "+values)
-     foundreferer=values
+    if client_http_referer and str(values) in client_http_referer.lower():
+     if debug2: print("ici10a: "+str(values))
+     foundreferer=str(values)
     elif values:
-     if debug2: print("httpreferer not found: jump ("+values+")")
+     if debug2: print("httpreferer not found: jump ("+str(values)+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3617,6 +3876,8 @@ def function_logsandsearch( looplogs):
      foundpcrecookie=0
      foundpcreuri=0
      foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
      next
 
    elif clef == "httpcookie" and not jump:
@@ -3642,18 +3903,17 @@ def function_logsandsearch( looplogs):
      foundpcrecookie=0
      foundpcreuri=0
      foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
      next
-
-   elif clef == "pcrereferer" and not jump:
-    if debug2: print("ok ici5")
-    if values and '^\-$' == values:
-     if debug2: print("ici5b: "+values)
-     foundpcrereferer=values
-    elif client_http_referer and re.search( r''+values, client_http_referer, re.I ):
-     if debug2: print("ici5a: "+values)
-     foundpcrereferer=values
+ 
+   elif clef == "httphost" and not jump:
+    if debug2: print("ok ici13")
+    if client_http_host and str(values) in client_http_host.lower():
+     if debug2: print("ici13: "+str(values))
+     foundhost=str(values)
     elif values:
-     if debug2: print("pcrereferer not found: jump ("+values+")")
+     if debug2: print("host not found: jump ("+str(values)+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3667,12 +3927,45 @@ def function_logsandsearch( looplogs):
      foundpcrecookie=0
      foundpcreuri=0
      foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
+     next
+
+   elif clef == "pcrereferer" and not jump:
+    if debug2: print("ok ici5")
+    if values and str(values) == '^\-$' and client_http_referer == '-':
+    #if values and '^\-$' == values:
+     if debug2: print("ici5b: "+str(values))
+     foundpcrereferer=str(values)
+    elif client_http_referer and re.search( r''+str(values), client_http_referer, re.I ):
+     if debug2: print("ici5a: "+str(values))
+     foundpcrereferer=str(values)
+    elif values:
+     if debug2: print("pcrereferer not found: jump ("+str(values)+")")
+     jump=1
+     foundmethod=0
+     founduricourt=0
+     foundurilong=0
+     foundurilongdistance=0
+     foundagent=0
+     foundreferer=0
+     foundpcrereferer=0
+     foundpcreagent=0
+     foundcookie=0
+     foundpcrecookie=0
+     foundpcreuri=0
+     foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
      next
 
    elif clef == "pcreagent" and not jump:
     if debug2: print("ok ici6")
-    if values and '^\-$' == values[0]:
-     if debug2: print("ici6c: "+values)
+    if values[0] and values[0] == '^\-$' and client_http_useragent == '-':
+    #if values and '^\-$' == values[0]:
+     #if debug2: print("ici6c: "+values)
+     if debug2: print("ici6c: "+str(values))
+     foundpcreagent=values[0]
     elif client_http_useragent and (values[1] == "nocase" or values[1] == "fast_pattern") and re.search( r''+values[0], client_http_useragent, re.I ):
      if debug2: print("ici6a: "+values[0])
      foundpcreagent=values[0]
@@ -3694,15 +3987,17 @@ def function_logsandsearch( looplogs):
      foundpcrecookie=0
      foundpcreuri=0
      foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
      next
 
    elif clef == "pcrecookie" and not jump:
     if debug2: print("ok ici7")
-    if client_http_cookie and values and re.search( r''+values, client_http_cookie, re.I ):
-     if debug2: print("ici7: "+values)
-     foundpcrecookie=values
+    if client_http_cookie and values and re.search( r''+str(values), client_http_cookie, re.I ):
+     if debug2: print("ici7: "+str(values))
+     foundpcrecookie=str(values)
     elif values:
-     if debug2: print("pcrecookie not found: jump ("+values+")")
+     if debug2: print("pcrecookie not found: jump ("+str(values)+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3716,6 +4011,8 @@ def function_logsandsearch( looplogs):
      foundpcrecookie=0
      foundpcreuri=0
      foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
      next
 
    elif clef == "pcreuri" and not jump:
@@ -3741,17 +4038,17 @@ def function_logsandsearch( looplogs):
      foundpcrecookie=0
      foundpcreuri=0
      foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
      next
 
-   elif clef == "remoteip" and not jump:
-    if debug2: print("ok ici12")
-    #if debug2: print("ok ici12u"+server_remote_ip)
-    if debug2: print("ok ici12v"+values)
-    if server_remote_ip and values and values == server_remote_ip:
-     if debug2: print("ici12a: "+values)
-     foundremoteip=values
-    elif values[0]:
-     if debug2: print("remoteip not found: jump ("+values+")")
+   elif clef == "pcrehost" and not jump:
+    if debug2: print("ok ici14")
+    if client_http_host and values and re.search( r''+str(values), client_http_host.lower() ):
+     if debug2: print("ici14: "+str(values))
+     foundpcrehost=str(values)
+    elif values:
+     if debug2: print("pcrehost not found: jump ("+str(values)+")")
      jump=1
      foundmethod=0
      founduricourt=0
@@ -3765,6 +4062,34 @@ def function_logsandsearch( looplogs):
      foundpcrecookie=0
      foundpcreuri=0
      foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
+     next
+
+   elif clef == "remoteip" and not jump:
+    if debug2: print("ok ici12")
+    #if debug2: print("ok ici12u"+server_remote_ip)
+    if debug2: print("ok ici12v"+str(values))
+    if server_remote_ip and values and str(values) == server_remote_ip:
+     if debug2: print("ici12a: "+str(values))
+     foundremoteip=str(values)
+    elif values:
+     if debug2: print("remoteip not found: jump ("+str(values)+")")
+     jump=1
+     foundmethod=0
+     founduricourt=0
+     foundurilong=0
+     foundurilongdistance=0
+     foundagent=0
+     foundreferer=0
+     foundpcrereferer=0
+     foundpcreagent=0
+     foundcookie=0
+     foundpcrecookie=0
+     foundpcreuri=0
+     foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
      next
 
  return; # function_logsandsearch()
