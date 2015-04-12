@@ -19,6 +19,8 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+# 12apr2015: fix old etplc perl print thread bug (added lock)
+#  6mar2015: enhance BlueCoat parser format
 # 23fev2015: rewrite to split http host and http uri for better performance
 # 18fev2015: added IIS logs parser, thx Tecko
 #  9jan2015: fix apache format logs, thx Alexandre
@@ -3196,6 +3198,22 @@ my @threads = map threads->create(sub {
  }
 
 
+#Feb 12 10:55:06 10.33.243.105 #Fields: date time s-ip sc-filter-result sc-status s-action x-timestamp-unix-utc cs-bytes sc-bytes x-cs-http-version x-sc-http-status cs-protocol cs-host c-uri cs-uri-port cs-uri-path cs-categories c-ip c-port s-port cs-userdn x-cs-user-authorization-name s-icap-info s-icap-status cs(User-Agent) s-connect-type cs-method x-cs-http-method rs(Content-Type) r-ip
+#Mar  6 12:07:41 host 2015-03-06 11:07:42 10.0.0.1 OBSERVED 200 TCP_NC_MISS 1425640062 748 8347 1.1 200 http www.test.com http://www.test.com/wiki?abc 80 /wiki "cat" 10.1.1.1 50455 8080 cn=x,o=y cn=a,o=y - ICAP "UA" Direct GET GET text/html;%20charset=UTF-8 1.1.1.1
+#Mar  6 12:07:41 host 2015-03-06 11:07:42 10.0.0.1 OBSERVED 0 TUNNELED 1425640062 1874 818 - - ssl google.com ssl://google.com:443/ 443 / "cat1;cat2" 10.1.1.1 62243 8000 - - - ICAP - Direct unknown - - 1.1.1.1
+#Mar  6 12:07:41 host 2015-03-06 11:07:41 10.0.0.1 DENIED 404 TCP_ERR_MISS 1425640061 194 7616 1.1 404 http web.com http://web.com/test.php?abc=def 80 /test.php "cat1;cat2" 10.1.1.1 4107 8080 - - - ICAP - Error GET GET - -
+#Mar  6 12:08:35 host 2015-03-06 11:08:36 10.0.0.1 DENIED 503 TCP_ERR_MISS 1425640116 489 7646 1.1 503 http test.com http://test.com/z.gif?abc 80 /z.gif "cat1" 10.1.1.1 49683 8080 cn=x cn=a - ICAP "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:17.0) Gecko/20100101" Direct GET GET - 2a01:c9c0:b6:170::43
+#Mar  6 12:09:58 host 2015-03-06 11:09:59 10.0.0.1 OBSERVED 200 TCP_NC_MISS 1425640199 1846 629885417 1.1 200 http test.com http://test.com/abc 80 /abc "cat" 10.1.1.1 51278 8080 cn=x cn=a "icap..." ICAP "Mozilla" Direct GET GET appli/abc 1.1.1.1
+
+ #elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(?:\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2}\s\d{2}\:\d{2}\:\d{2})\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s[A-Z]+\s(\d+)\s\S+\s\d+\s\d+\s\d+\s\S+\s(?:\d+|\-)\s\S+\s(\S+)\s(?:\w+\:\/\/[^\/]*?)(\/\S*)\s\d+\s\S+\s(?:\\\"(?:[^\"]*?)\\\"|(?:\-))\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s\d+\s\d+\s\S+\s\S+\s\S+\s\S+\s(?:\\\"([^\"]*?)\\\"|(\-))\s\S+\s(\S+)\s\S+\s\S+\s(?:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})|(\-))(?:\\r)?$/ ) {
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(?:\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2}\s\d{2}\:\d{2}\:\d{2})\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s[A-Z]+\s(\d+)\s\S+\s\d+\s\d+\s\d+\s\S+\s(?:\d+|\-)\s\S+\s(\S+)\s(?:\w+\:\/\/[^\/]*?)(\/\S*)\s\d+\s\S+\s(?:\\\"(?:[^\"]*?)\\\"|(?:\-))\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s\d+\s\d+\s\S+\s\S+\s(?:\\\"(?:[^\"]*?)\\\"|(?:\S+))\s\S+\s(?:\\\"([^\"]*?)\\\"|(\-))\s\S+\s(\S+)\s\S+\s\S+\s(?:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})|(\-)|(?:\S+))(?:\\r)?$/ ) {
+  $timestamp_central=$1; $server_hostname_ip=$2; $http_reply_code=$3; $client_http_host=$4; $client_http_uri=$5; $client_hostname_ip=$6; $client_http_useragent=$7; $client_http_method=$9; $server_remote_ip=$10;
+  if( $10 && $10 eq "-" ) { $client_http_useragent="-" }
+  if( $11 && $11 eq "-" ) { undef $server_remote_ip }
+  print "passage dans BlueCoat 4 regexp.\n" if $debug2;
+ }
+
+
 # log proxy McAfee WebGateway default v7.2.x (missing Referer and Cookie)
 # [1/Mar/2014:17:34:07 +0200] \"\" \"\" 10.1.1.1 200 \"POST http://google.com/test?test HTTP/1.1\" \"Category\" \"0 (Minimal Risk)\" \"text/xml\" 818 \"Java/1.6.0_55\" \"McAfeeGW: Optionnal Antivirus\" Cache=\"TCP_MISS_RELOAD\" nexthopname.com
 # [1/Mar/2014:17:34:07 +0200] \"dom\\alloa\" \"Policyname\" 10.1.1.1 200 \"GET http://1.1.1.1/abc/def/ghi HTTP/1.1\" \"Content Server, Social Networking\" \"-24 (Unverified)\" \"application/x-fcs\" 270 \"Shockwave Flash\" \"\" Cache=\"TCP_MISS_VERIFY\" nexthopname.com
@@ -3593,6 +3611,7 @@ my @threads = map threads->create(sub {
    {
     if( $syslogsock && ($foundmethod or $founduricourt1 or $foundurilong1 or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost) )
     {
+     lock($queue);
      my $tutu='';
      print $syslogsock "$host etplc: ok trouvé: ";
      print $syslogsock "timestamp: $timestamp_central, " if $timestamp_central;
@@ -3668,6 +3687,7 @@ my @threads = map threads->create(sub {
     }
     elsif( $foundmethod or $founduricourt1 or $foundurilong1 or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost)
     {
+     lock($queue);
      print "ok trouvé: ";
      print "timestamp: $timestamp_central, " if $timestamp_central;
      print "server_hostname_ip: $server_hostname_ip, " if $server_hostname_ip;
