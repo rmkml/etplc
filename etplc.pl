@@ -19,6 +19,7 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+# 13apr2015: first urilen implementation
 # 12apr2015: fix old etplc perl print thread bug (added lock)
 #  6mar2015: enhance BlueCoat parser format
 # 23fev2015: rewrite to split http host and http uri for better performance
@@ -179,13 +180,13 @@ close CPUINFO;
 
 ####################################################################################################
 
- my $urilen1='\s*urilen\:\s*\d*\s*\<?\s*\>?\s*\d+\;';
+ my $urilen1='\s*urilen\:\s*(\d*\s*\<?\s*\>?\s*\d+)\;';
  my $flowbits1='\s*flowbits\:.*?\;';
  my $flow1='flow\:\s*(?:to_server|to_client|from_client|from_server)?(?:\s*\,)?(?:established)?(?:\s*\,\s*)?(?:to_server|to_client|from_client|from_server)?\;';
  my $httpmethod='\s*content\:\"([gG][eE][tT]|[pP][oO][sS][tT]|[hH][eE][aA][dD]|[sS][eE][aA][rR][cC][hH]|[pP][rR][oO][pP][fF][iI][nN][dD]|[tT][rR][aA][cC][eE]|[oO][pP][tT][iI][oO][nN][sS]|[dD][eE][bB][uU][gG]|[cC][oO][nN][nN][eE][cC][tT]|[dD][eE][lL][eE][tT][eE]|[pP][uU][tT])\s*[^\"]*?\"\;(?:\s*(nocase)\;\s*|\s*http_method\;\s*|\s*depth\:\d+\;\s*)*';
  my $contentoptions1='\s*(fast_pattern)(?:\:only|\:\d+\,\d+)?\;|\s*(nocase)\;|\s*offset\:\d+\;|\s*depth\:\d+\;|\s*distance\:\s*\-?(\d+)\;|\s*within\:(\d+)\;|\s*http_raw_uri\;';
  my $negateuricontent1='\s*(?:uri)?content\:\!\"[^\"]*?\"\s*\;(?:\s*fast_pattern(?:\:only|\d+\,\d+)?\;|\s*nocase\;|\s*http_uri\;|\s*http_header\;|\s*http_cookie\;|\s*offset\:\d+\;|\s*depth\:\d+\;|\s*http_raw_uri\;|\s*distance\:\s*\-?\d+\;|\s*within\:\d+\;|\s*http_client_body\;)*';
- my $extracontentoptions='\s*threshold\:.*?\;|\s*flowbits\:.*?\;|\s*isdataat\:\d+(?:\,relative)?\;|\s*dsize\:[\<\>]*\d+\;|\s*urilen\:\s*\d*\s*\<?\s*\>?\s*\d+\;|\s*detection_filter\:.*?\;|\s*priority\:\d+\;|\s*metadata\:.*?\;';
+ my $extracontentoptions='\s*threshold\:.*?\;|\s*flowbits\:.*?\;|\s*isdataat\:\d+(?:\,relative)?\;|\s*dsize\:[\<\>]*\d+\;|\s*detection_filter\:.*?\;|\s*priority\:\d+\;|\s*metadata\:.*?\;';
  my $referencesidrev='(?:\s*reference\:.*?\;\s*)*\s*classtype\:.*?\;\s*sid\:\d+\;\s*rev\:\d+\;\s*\)\s*';
  my $pcreuri='\s*pcre\:\"\/(.*?)\/[smiUGDIR]*\"\;'; # not header/Cookie/Post_payload!
  my $pcreagent='\s*pcre\:\"\/(.*?)\/[smiH]*\"\;';
@@ -229,116 +230,117 @@ foreach $_ ( @fileemergingthreats )
  }
 
  # begin http_uri
- elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$flowbits1)?(?:$urilen1)?(?:$httpmethod)?(?:$urilen1)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*(?:http_uri|http_raw_uri)\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreagent)?(?:$negateuricontent1)?(?:$extracontentoptions)?$referencesidrev$/ )
+ elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$flowbits1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*(?:http_uri|http_raw_uri)\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreagent)?(?:$negateuricontent1)?(?:$extracontentoptions)?$referencesidrev$/ )
  {
   my $etmsg1=$1;
+  my $http_urilen=$2 if $2;
   my $http_method2=0;
   my $http_methodnocase3=0;
   print "brut1: $_\n" if $debug1;
   #print "here1: 1: $1, 2: $2, 3: $3, 4: $4, 5: $5, 6: $6, 7: $7, 8: $8, 9: $9, 10: $10, 11: $11, 12: $12, 13: $13, 14: $14, 15: $15, 16: $16, 17: $17, 18: $18, 19: $19, 20: $20, 21: $21, 22: $22, 23: $23, 24: $24, 25: $25, 26: $26, 27: $27, 28: $28, 29: $29, 30: $30, 31: $31, 32: $32, 33: $33, 34: $34, 35: $35, 36: $36, 37: $37, $38, $39, 40: $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, 50: $50, $51, $52, $53, 54: $54, $55, $56, $57, $58, $59, 60: $60, $61, $62, $63, $64, $65, $66, $67, $68, $69, 70: $70, $71, $72, $73, $74, $75, $76, $77, $78, $79, 80: $80, $81, $82, $83, $84, $85, $86, $87, $88, $89, 90: $90, $91, $92, $93, $94, 95: $95, $96, $97, $98, $99, 100: $100, $101, $102, 103: $103, $104, $105, $106, $107, $108, $109, 110: $110, $111, $112, $113, $114, $115, $116, $117, $118, $119, 120: $120, 121: $121, $122, $123, $124, $125, $126, $127, $128, $129, 130: $130, $131, $132, $133, $134, $135, $136, $137, $138, $139, 140: $140\n" if $debug1;
 
-     $http_method2=$2 if $2;
-     $http_methodnocase3=$3 if $3;
-  my $http_uri03=$4 if $4;
-  my $http_urifast5=$5 if $5;
-  my $http_urinocase5=$6 if $6;		# 5
-  my $http_urifast9=$9 if $9;
-  my $http_urinocase10=$10 if $10;
-  my $http_uri08=$13 if $13;		# 11
-  my $http_urifast14=$14 if $14;
-  my $http_urinocase12=$15 if $15;	# 12
-  my $distance9=$16 if defined($16);	# 13
-  my $distance10=$17 if defined($17);	# 14
-  my $http_urifast18=$18 if $18;
-  my $http_urinocase15=$19 if $19;	# 15
-  my $distance11=$20 if defined($20);	# 16
-  my $distance12=$21 if defined($21);	# 17
-  my $http_uri13=$22 if $22;		# 18
-  my $http_urifast23=$23 if $23;
-  my $http_urinocase19=$24 if $24;	# 19
-  my $distance14=$25 if defined($25);	# 20
-  my $distance15=$26 if defined($26);	# 21
-  my $http_urifast27=$27 if $27;
-  my $http_urinocase22=$28 if $28;	# 22
-  my $distance16=$29 if defined($29);	# 23
-  my $distance17=$30 if defined($30);	# 24
-  my $http_uri18=$31 if $31;		# 25
-  my $http_urifast32=$32 if $32;
-  my $http_urinocase26=$33 if $33;	# 26
-  my $distance19=$34 if defined($34);	# 27
-  my $distance20=$35 if defined($35);	# 28
-  my $http_urifast36=$36 if $36;
-  my $http_urinocase29=$37 if $37;	# 29
-  my $distance21=$38 if defined($38);	# 30
-  my $distance22=$39 if defined($39);	# 31
-  my $http_uri23=$40 if $40;		# 32
-  my $http_urifast41=$41 if $41;
-  my $http_urinocase33=$42 if $42;	# 33
-  my $distance24=$43 if defined($43);	# 34
-  my $distance25=$44 if defined($44);	# 35
-  my $http_urifast44=$45 if $45;
-  my $http_urinocase36=$46 if $46;	# 36
-  my $distance26=$47 if defined($47);	# 37
-  my $distance27=$48 if defined($48);	# 38
-  my $http_uri28=$49 if $49;		# 39
-  my $http_urifast49=$50 if $50;
-  my $http_urinocase40=$51 if $51;	# 40
-  my $distance29=$52 if defined($52);	# 41
-  my $distance30=$53 if defined($53);	# 42
-  my $http_urifast54=$54 if $54;
-  my $http_urinocase43=$55 if $55;	# 43
-  my $distance31=$56 if defined($56);	# 44
-  my $distance32=$57 if defined($57);	# 45
-  my $http_uri33=$58 if $58;		# 46
-  my $http_urifast58=$59 if $59;
-  my $http_urinocase47=$60 if $60;	# 47
-  my $distance34=$61 if defined($61);	# 48
-  my $distance35=$62 if defined($62);	# 49
-  my $http_urifast62=$63 if $63;
-  my $http_urinocase50=$64 if $64;	# 50
-  my $distance36=$65 if defined($65);	# 51
-  my $distance37=$66 if defined($66);	# 52
-  my $http_uri38=$67 if $67;		# 53
-  my $http_urinocase54=$68 if $68;	# 54
-  my $http_urinocase57=$57 if $57;	# 57
-  my $http_uri43=$60 if $60;		# 60
-  my $http_urinocase61=$61 if $61;	# 61
-  my $http_urinocase64=$64 if $64;	# 64
-  my $http_uri48=$67 if $67;		# 67
-  my $http_urinocase68=$68 if $68;	# 68
-  my $http_urinocase71=$71 if $71;	# 71
-  my $http_uri53=$74 if $74;		# 74
-  my $http_urinocase75=$75 if $75;	# 75
-  my $http_urinocase78=$78 if $78;	# 78
-  my $http_uri58=$81 if $81;		# 81
-  my $http_urinocase82=$82 if $82;	# 82
-  my $http_urinocase85=$85 if $85;	# 85
-  my $http_uri63=$88 if $88;		# 88
-  my $http_urinocase89=$89 if $89;	# 89
-  my $http_urinocase92=$92 if $92;	# 92
-  my $http_header68=$95 if $95;		# 95
-  my $http_headernocase96=$96 if $96;	# 96
-  my $http_headernocase99=$99 if $99;	# 99
-  my $http_header121=$121 if $121;
-  my $http_headerfast122=$122 if $122;
-  my $http_headernocase123=$123 if $123;
-  my $distance124=$124 if defined($124);
-  my $distance125=$125 if defined($125);
-  my $http_headerfast126=$126 if $126;
-  my $http_headernocase127=$127 if $127;
-  my $distance128=$128 if defined($128);
-  my $distance129=$129 if defined($129);
-  my $pcre_uri73=$130 if $130;		# 102
-  my $http_header74=$131 if $131;	# 103
-  my $http_headerfast132=$132 if $132;
-  my $http_headernocase104=$133 if $133;# 104
-  my $distance75=$134 if defined($134);	# 105
-  my $distance76=$135 if defined($135);	# 106
-  my $http_headerfast136=$136 if $136;
-  my $http_headernocase107=$137 if $137;# 107
-  my $distance77=$138 if defined($138);	# 108
-  my $distance78=$139 if defined($139);	# 109
-  my $pcre_agent79=$140 if $140;	# 110
+     $http_method2=$3 if $3;
+     $http_methodnocase3=$4 if $4;
+  my $http_uri03=$5 if $5;
+  my $http_urifast5=$6 if $6;
+  my $http_urinocase5=$7 if $7;		# 5
+  my $http_urifast9=$10 if $10;
+  my $http_urinocase10=$11 if $11;
+  my $http_uri08=$14 if $14;		# 11
+  my $http_urifast14=$15 if $15;
+  my $http_urinocase12=$16 if $16;	# 12
+  my $distance9=$17 if defined($17);	# 13
+  my $distance10=$18 if defined($18);	# 14
+  my $http_urifast18=$19 if $19;
+  my $http_urinocase15=$20 if $20;	# 15
+  my $distance11=$21 if defined($21);	# 16
+  my $distance12=$22 if defined($22);	# 17
+  my $http_uri13=$23 if $23;		# 18
+  my $http_urifast23=$24 if $24;
+  my $http_urinocase19=$25 if $25;	# 19
+  my $distance14=$26 if defined($26);	# 20
+  my $distance15=$27 if defined($27);	# 21
+  my $http_urifast27=$28 if $28;
+  my $http_urinocase22=$29 if $29;	# 22
+  my $distance16=$30 if defined($30);	# 23
+  my $distance17=$31 if defined($31);	# 24
+  my $http_uri18=$32 if $32;		# 25
+  my $http_urifast32=$33 if $33;
+  my $http_urinocase26=$34 if $34;	# 26
+  my $distance19=$35 if defined($35);	# 27
+  my $distance20=$36 if defined($36);	# 28
+  my $http_urifast36=$37 if $37;
+  my $http_urinocase29=$38 if $38;	# 29
+  my $distance21=$39 if defined($39);	# 30
+  my $distance22=$40 if defined($40);	# 31
+  my $http_uri23=$41 if $41;		# 32
+  my $http_urifast41=$42 if $42;
+  my $http_urinocase33=$43 if $43;	# 33
+  my $distance24=$44 if defined($44);	# 34
+  my $distance25=$45 if defined($45);	# 35
+  my $http_urifast44=$46 if $46;
+  my $http_urinocase36=$47 if $47;	# 36
+  my $distance26=$48 if defined($48);	# 37
+  my $distance27=$49 if defined($49);	# 38
+  my $http_uri28=$50 if $50;		# 39
+  my $http_urifast49=$51 if $51;
+  my $http_urinocase40=$52 if $52;	# 40
+  my $distance29=$53 if defined($53);	# 41
+  my $distance30=$54 if defined($54);	# 42
+  my $http_urifast54=$55 if $55;
+  my $http_urinocase43=$56 if $56;	# 43
+  my $distance31=$57 if defined($57);	# 44
+  my $distance32=$58 if defined($58);	# 45
+  my $http_uri33=$59 if $59;		# 46
+  my $http_urifast58=$60 if $60;
+  my $http_urinocase47=$61 if $61;	# 47
+  my $distance34=$62 if defined($62);	# 48
+  my $distance35=$63 if defined($63);	# 49
+  my $http_urifast62=$64 if $64;
+  my $http_urinocase50=$65 if $65;	# 50
+  my $distance36=$66 if defined($66);	# 51
+  my $distance37=$67 if defined($67);	# 52
+  my $http_uri38=$68 if $68;		# 53
+  my $http_urinocase54=$69 if $69;	# 54
+  my $http_urinocase57=$58 if $58;	# 57
+  my $http_uri43=$61 if $61;		# 60
+  my $http_urinocase61=$62 if $62;	# 61
+  my $http_urinocase64=$65 if $65;	# 64
+  my $http_uri48=$68 if $68;		# 67
+  my $http_urinocase68=$69 if $69;	# 68
+  my $http_urinocase71=$72 if $72;	# 71
+  my $http_uri53=$75 if $75;		# 74
+  my $http_urinocase75=$76 if $76;	# 75
+  my $http_urinocase78=$79 if $79;	# 78
+  my $http_uri58=$82 if $82;		# 81
+  my $http_urinocase82=$83 if $83;	# 82
+  my $http_urinocase85=$86 if $86;	# 85
+  my $http_uri63=$89 if $89;		# 88
+  my $http_urinocase89=$90 if $90;	# 89
+  my $http_urinocase92=$93 if $93;	# 92
+  my $http_header68=$96 if $96;		# 95
+  my $http_headernocase96=$97 if $97;	# 96
+  my $http_headernocase99=$100 if $100;	# 99
+  my $http_header121=$122 if $122;
+  my $http_headerfast122=$123 if $123;
+  my $http_headernocase123=$124 if $124;
+  my $distance124=$125 if defined($125);
+  my $distance125=$126 if defined($126);
+  my $http_headerfast126=$127 if $127;
+  my $http_headernocase127=$128 if $128;
+  my $distance128=$129 if defined($129);
+  my $distance129=$130 if defined($130);
+  my $pcre_uri73=$131 if $131;		# 102
+  my $http_header74=$132 if $132;	# 103
+  my $http_headerfast132=$133 if $133;
+  my $http_headernocase104=$134 if $134;# 104
+  my $distance75=$134 if defined($135);	# 105
+  my $distance76=$136 if defined($136);	# 106
+  my $http_headerfast136=$137 if $137;
+  my $http_headernocase107=$138 if $138;# 107
+  my $distance77=$139 if defined($139);	# 108
+  my $distance78=$140 if defined($130);	# 109
+  my $pcre_agent79=$141 if $141;	# 110
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -1450,6 +1452,7 @@ foreach $_ ( @fileemergingthreats )
   print "httpurilongdistance1: $etmsg1, @tableauuridistance1\n" if $debug1 && @tableauuridistance1;
   print "httphost1: $etmsg1, ".lc($httphost)."\n" if $debug1 && $httphost;
   print "tableaupcrehost1: $etmsg1, $pcrehost\n" if $debug1 && $pcrehost;
+  print "http_urilen1: $etmsg1, $http_urilen\n" if $debug1 && $http_urilen;
 
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
@@ -1462,6 +1465,7 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{httpurilongdistance} = [ @tableauuridistance1 ] if @tableauuridistance1;
   $hash{$etmsg1}{httphost} = [ lc($httphost) ] if $httphost;
   $hash{$etmsg1}{pcrehost} = [ $pcrehost ] if $pcrehost;
+  $hash{$etmsg1}{httpurilen} = [ $http_urilen ] if $http_urilen;
 
   next;
  }
@@ -1470,30 +1474,31 @@ foreach $_ ( @fileemergingthreats )
  elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*(?:uri)?content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$pcreuri)?(?:$extracontentoptions)?$referencesidrev$/ )
  {
   my $etmsg1=$1;
+  my $http_urilen=$2 if $2;
   my $http_method2=0;
   my $http_methodnocase3=0;
   print "brut2: $_\n" if $debug1;
   #print "here2: 1: $1, 2: $2, 3: $3, 4: $4, 5: $5, 6: $6, 7: $7, 8: $8, 9: $9, 10: $10, 11: $11, 12: $12, 13: $13, 14: $14, 15: $15, 16: $16, 17: $17, 18: $18, 19: $19, 20: $20, 21: $21, 22: $22, 23: $23, 24: $24, 25: $25, 26: $26, 27: $27, 28: $28, 29: $29, 30: $30, 31: $31, 32: $32, 33: $33\n" if $debug1;
 
-     $http_method2=$2 if $2;
-     $http_methodnocase3=$3 if $3;
+     $http_method2=$3 if $3;
+     $http_methodnocase3=$4 if $4;
 
-  my $http_uri03=$4 if $4;		# 4
-  my $http_urifast5=$5 if $5;
-  my $http_urinocase5=$6 if $6;		# 5
-  my $http_header06=$8 if $8;		# 8
-  my $http_headernocase9=$9 if $9;	# 9
-  my $http_headernocase12=$12 if $12;	# 12
-  my $http_uri11=$18 if $18;		# 15
-  my $http_urifast19=$19 if $19;
-  my $http_urinocase16=$20 if $20;	# 16
-  my $http_uri14=$23 if $23;		# 19
-  my $http_urifast24=$24 if $24;
-  my $http_urinocase20=$25 if $25;	# 20
-  my $http_uri17=$28 if $28;		# 23
-  my $http_urifast29=$29 if $29;
-  my $http_urinocase23=$30 if $30;	# 24
-  my $pcre_uri20=$33 if $33;		# 27
+  my $http_uri03=$5 if $5;		# 4
+  my $http_urifast5=$6 if $6;
+  my $http_urinocase5=$7 if $7;		# 5
+  my $http_header06=$9 if $9;		# 8
+  my $http_headernocase9=$10 if $10;	# 9
+  my $http_headernocase12=$13 if $13;	# 12
+  my $http_uri11=$19 if $19;		# 15
+  my $http_urifast19=$20 if $20;
+  my $http_urinocase16=$21 if $21;	# 16
+  my $http_uri14=$24 if $24;		# 19
+  my $http_urifast24=$25 if $25;
+  my $http_urinocase20=$26 if $26;	# 20
+  my $http_uri17=$29 if $29;		# 23
+  my $http_urifast29=$30 if $30;
+  my $http_urinocase23=$31 if $31;	# 24
+  my $pcre_uri20=$34 if $34;		# 27
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -1830,6 +1835,7 @@ foreach $_ ( @fileemergingthreats )
   print "httpagentshort2: $etmsg1, ".lc($httpagentshort)."\n" if $debug1 && $httpagentshort;
   print "tableauhttpmethod2: $etmsg1, $http_method2, $http_methodnocase3\n" if $debug1 && $http_method2;
   print "tableaupcrereferer2: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
+  print "http_urilen2: $etmsg1, $http_urilen\n" if $debug1 && $http_urilen;
 
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
@@ -1838,6 +1844,7 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{pcreuri} = [ $abc1, $abc1_nocase ] if $abc1;
   $hash{$etmsg1}{pcreagent} = [ $httppcreagent, $httppcreagent_nocase ] if $httppcreagent;
   $hash{$etmsg1}{httpurilong} = [ @tableauuri1 ] if @tableauuri1;
+  $hash{$etmsg1}{httpurilen} = [ $http_urilen ] if $http_urilen;
 
   next;
  }
@@ -2175,61 +2182,62 @@ foreach $_ ( @fileemergingthreats )
  elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:$pcreagent)?(?:$extracontentoptions)?$referencesidrev$/ )
  {
   my $etmsg1=$1;
+  my $http_urilen=$2 if $2;
   my $http_method2=0;
   my $http_methodnocase3=0;
   print "brut4: $_\n" if $debug1;
   #print "here4: 1: $1, 2: $2, 3: $3, 4: $4, 5: $5, 6: $6, 7: $7, 8: $8, 9: $9, 10: $10, 11: $11, 12: $12, 13: $13, 14: $14, 15: $15, 16: $16, 17: $17, 18: $18, 19: $19, 20: $20, 21: $21, 22: $22, 23: $23, 24: $24, 25: $25, 26: $26, 27: $27, 28: $28, 29: $29, 30: $30, 31: $31, 32: $32, 33: $33, 34: $34, 35: $35, 36: $36, 37: $37, $38, $39, 40: $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, 50: $50, $51, $52, $53, 54: $54, $55, $56, $57, $58, 59: $59\n" if $debug1;
 
-     $http_method2=$2 if $2;
-     $http_methodnocase3=$3 if $3;
-  my $http_header03=$4 if $4;		# 4
-  my $http_headerfast5=$5 if $5;
-  my $http_headernocase5=$6 if $6;	# 5
-  my $http_headerfast9=$9 if $9;
-  my $http_headernocase8=$10 if $10;	# 8
-  my $http_uri08=$13 if $13;		# 11
-  my $http_urifast14=$14 if $14;
-  my $http_urinocase12=$15 if $15;	# 12
-  my $http_urifast18=$18 if $18;
-  my $http_urinocase15=$19 if $19;	# 15
-  my $http_header13=$22 if $22;		# 18
-  my $http_headerfast23=$23 if $23;
-  my $http_headernocase19=$24 if $24;	# 19
-  my $distance14=$25 if defined($25);	# 20
-  my $distance15=$26 if defined($26);	# 21
-  my $http_headerfast27=$27 if $27;
-  my $http_headernocase22=$28 if $28;	# 22
-  my $distance16=$29 if defined($29);	# 23
-  my $distance17=$30 if defined($30);	# 24
-  my $http_uri18=$31 if $31;		# 25
-  my $http_urifast32=$32 if $32;
-  my $http_urinocase25=$33 if $33;	# 26
-  my $distance19=$34 if defined($34);	# 27
-  my $distance20=$35 if defined($35);	# 28
-  my $http_urifast36=$36 if $36;
-  my $http_urinocase28=$37 if $37;	# 29
-  my $distance21=$38 if defined($38);	# 30
-  my $distance22=$39 if defined($39);	# 31
-  my $http_header23=$40 if $40;		# 32
-  my $http_headerfast41=$41 if $41;
-  my $http_headernocase32=$42 if $42;	# 33
-  my $distance24=$43 if defined($43);	# 34
-  my $distance25=$44 if defined($44);	# 35
-  my $http_headerfast45=$45 if $45;
-  my $http_headernocase35=$46 if $46;	# 36
-  my $distance26=$47 if defined($47);	# 37
-  my $distance27=$48 if defined($48);	# 38
-  my $http_uri28=$49 if $49;		# 39
-  my $http_urifast50=$50 if $50;
-  my $http_urinocase39=$51 if $51;	# 40
-  my $distance29=$52 if defined($52);	# 41
-  my $distance30=$53 if defined($53);	# 42
-  my $http_urifast54=$54 if $54;
-  my $http_urinocase42=$55 if $55;	# 43
-  my $distance31=$56 if defined($56);	# 44
-  my $distance32=$57 if defined($57);	# 45
-  my $pcre_uri33=$58 if $58;		# 46
-  my $pcre_agent34=$59 if $59;		# 47
+     $http_method2=$3 if $3;
+     $http_methodnocase3=$4 if $4;
+  my $http_header03=$5 if $5;		# 4
+  my $http_headerfast5=$6 if $6;
+  my $http_headernocase5=$7 if $7;	# 5
+  my $http_headerfast9=$10 if $10;
+  my $http_headernocase8=$11 if $11;	# 8
+  my $http_uri08=$14 if $14;		# 11
+  my $http_urifast14=$15 if $15;
+  my $http_urinocase12=$16 if $16;	# 12
+  my $http_urifast18=$19 if $19;
+  my $http_urinocase15=$20 if $20;	# 15
+  my $http_header13=$23 if $23;		# 18
+  my $http_headerfast23=$24 if $24;
+  my $http_headernocase19=$25 if $25;	# 19
+  my $distance14=$26 if defined($26);	# 20
+  my $distance15=$27 if defined($27);	# 21
+  my $http_headerfast27=$28 if $28;
+  my $http_headernocase22=$29 if $29;	# 22
+  my $distance16=$30 if defined($30);	# 23
+  my $distance17=$31 if defined($31);	# 24
+  my $http_uri18=$32 if $32;		# 25
+  my $http_urifast32=$33 if $33;
+  my $http_urinocase25=$34 if $34;	# 26
+  my $distance19=$35 if defined($35);	# 27
+  my $distance20=$36 if defined($36);	# 28
+  my $http_urifast36=$37 if $37;
+  my $http_urinocase28=$38 if $38;	# 29
+  my $distance21=$39 if defined($39);	# 30
+  my $distance22=$40 if defined($40);	# 31
+  my $http_header23=$41 if $41;		# 32
+  my $http_headerfast41=$42 if $42;
+  my $http_headernocase32=$43 if $43;	# 33
+  my $distance24=$44 if defined($44);	# 34
+  my $distance25=$45 if defined($45);	# 35
+  my $http_headerfast45=$46 if $46;
+  my $http_headernocase35=$47 if $47;	# 36
+  my $distance26=$48 if defined($48);	# 37
+  my $distance27=$49 if defined($49);	# 38
+  my $http_uri28=$50 if $50;		# 39
+  my $http_urifast50=$51 if $51;
+  my $http_urinocase39=$52 if $52;	# 40
+  my $distance29=$53 if defined($53);	# 41
+  my $distance30=$54 if defined($54);	# 42
+  my $http_urifast54=$55 if $55;
+  my $http_urinocase42=$56 if $56;	# 43
+  my $distance31=$57 if defined($57);	# 44
+  my $distance32=$58 if defined($58);	# 45
+  my $pcre_uri33=$59 if $59;		# 46
+  my $pcre_agent34=$60 if $60;		# 47
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -2856,6 +2864,7 @@ foreach $_ ( @fileemergingthreats )
   print "tableaupcrecookie4: $etmsg1, $cookiepcre\n" if $debug1 && $cookiepcre;
   print "httphost4: $etmsg1, ".lc($httphost)."\n" if $debug1 && $httphost;
   print "tableaupcrehost4: $etmsg1, $pcrehost\n" if $debug1 && $pcrehost;
+  print "http_urilen4: $etmsg1, $http_urilen\n" if $debug1 && $http_urilen;
 
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
@@ -2869,6 +2878,7 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{httpurilong} = [ @tableauuri1 ] if @tableauuri1;
   $hash{$etmsg1}{httphost} = [ lc($httphost) ] if $httphost;
   $hash{$etmsg1}{pcrehost} = [ $pcrehost ] if $pcrehost;
+  $hash{$etmsg1}{httpurilen} = [ $http_urilen ] if $http_urilen;
 
   next;
  }
@@ -3306,6 +3316,7 @@ my @threads = map threads->create(sub {
    my $jump=0;
    my $founduricourt1=0;
    my $foundurilong1=0;
+   my $foundurilen=0;
    my $foundurilongdistance1=0;
    my $foundagent=0;
    my $foundmethod=0;
@@ -3353,6 +3364,36 @@ my @threads = map threads->create(sub {
      elsif( $hash{$etmsg}{"httpuricourt"}[0] )
      {
       print "uri not found2: jump (",$hash{$etmsg}{"httpuricourt"}[0],")\n" if $debug2;
+      $jump=1;
+      last;
+     }
+    }
+
+    elsif( $clef eq "httpurilen" && !$jump )
+    {
+     if( $hash{$etmsg}{"httpurilen"}[0] && $client_http_uri && $hash{$etmsg}{"httpurilen"}[0]=~/^(\d+)$/ && length($client_http_uri) == $1 )	# urilen:80;
+     {
+      print "ici15a: ",$hash{$etmsg}{"httpurilen"}[0],"\n" if $debug2 && $hash{$etmsg}{"httpurilen"}[0];
+      $foundurilen=1;
+     }
+     elsif( $hash{$etmsg}{"httpurilen"}[0] && $client_http_uri && $hash{$etmsg}{"httpurilen"}[0]=~/^\>(\d+)$/ && length($client_http_uri) > $1 )	# urilen:>80;
+     {
+      print "ici15b: ",$hash{$etmsg}{"httpurilen"}[0],"\n" if $debug2 && $hash{$etmsg}{"httpurilen"}[0];
+      $foundurilen=1;
+     }
+     elsif( $hash{$etmsg}{"httpurilen"}[0] && $client_http_uri && $hash{$etmsg}{"httpurilen"}[0]=~/^\<(\d+)$/ && length($client_http_uri) < $1 )        # urilen:<80;
+     {
+      print "ici15c: ",$hash{$etmsg}{"httpurilen"}[0],"\n" if $debug2 && $hash{$etmsg}{"httpurilen"}[0];
+      $foundurilen=1;
+     }
+     elsif( $hash{$etmsg}{"httpurilen"}[0] && $client_http_uri && $hash{$etmsg}{"httpurilen"}[0]=~/^(\d+)\<\>(\d+)$/ && length($client_http_uri) > $1 && length($client_http_uri) < $2 )        # urilen:25<>45;
+     {
+      print "ici15d: ",$hash{$etmsg}{"httpurilen"}[0],"\n" if $debug2 && $hash{$etmsg}{"httpurilen"}[0];
+      $foundurilen=1;
+     }
+     elsif( $hash{$etmsg}{"httpurilen"}[0] )
+     {
+      print "urilen not found15: jump (",$hash{$etmsg}{"httpurilen"}[0]," and ",length($client_http_uri),")\n" if $debug2;
       $jump=1;
       last;
      }
@@ -3609,7 +3650,7 @@ my @threads = map threads->create(sub {
    }
    unless( $jump )
    {
-    if( $syslogsock && ($foundmethod or $founduricourt1 or $foundurilong1 or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost) )
+    if( $syslogsock && ($foundmethod or $founduricourt1 or $foundurilong1 or $foundurilen or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost) )
     {
      lock($queue);
      my $tutu='';
@@ -3679,13 +3720,15 @@ my @threads = map threads->create(sub {
      $tutu=$hash{$etmsg}{"httphost"}[0];
      print $syslogsock ", ethost: $tutu" if $foundhost;
 
+     print $syslogsock ", ethost: ",$hash{$etmsg}{"httpurilen"}[0] if $foundurilen;
+
      #print $syslogsock ", etpcrehost: ",$hash{$etmsg}{"pcrehost"}[0] if $foundpcrehost;
      $tutu=$hash{$etmsg}{"pcrehost"}[0];
      print $syslogsock ", etpcrehost: $tutu" if $foundpcrehost;
 
      print $syslogsock "\n";
     }
-    elsif( $foundmethod or $founduricourt1 or $foundurilong1 or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost)
+    elsif( $foundmethod or $founduricourt1 or $foundurilong1 or $foundurilen or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost)
     {
      lock($queue);
      print "ok trouvé: ";
@@ -3716,6 +3759,7 @@ my @threads = map threads->create(sub {
      print ", etremoteip: ",$hash{$etmsg}{"remoteip"}[0] if $foundremoteip;
      print ", ethost: ",$hash{$etmsg}{"httphost"}[0] if $foundhost;
      print ", etpcrehost: ",$hash{$etmsg}{"pcrehost"}[0] if $foundpcrehost;
+     print ", eturilen: ",$hash{$etmsg}{"httpurilen"}[0] if $foundurilen;
      print "\n";
     }
    }
