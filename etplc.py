@@ -18,6 +18,7 @@
 # Contact: rmkml@yahoo.fr
 
 # ChangeLog:
+# 25apr2015: fix http user-agent short
 # 13apr2015: first urilen implementation
 # 23fev2015: rewrite to split http host and http uri for better performance + fix pcreagent and pcrereferer
 # 18fev2015: added IIS logs parser, thx Tecko
@@ -2160,12 +2161,10 @@ def function_match_uriheader( lineet ):
   httpagentshort = http_header08
  elif http_header08 and http_header18 and ( http_header18.__len__() >= ( http_header08.__len__() ) ):
   httpagentshort = http_header18
- elif http_header08 and http_header18 and ( http_header121.__len__() >= ( http_header08.__len__() ) ):
-  httpagentshort = http_header121
  elif http_header08 and not http_header18:
   httpagentshort = http_header08
  elif http_header18 and not http_header08:
-  httpagentshort = http_header08
+  httpagentshort = http_header18
 
  if httpagentshort:
   httpagentshort = re.sub( r"\\x(..)", function_replacement_http_agent_short, httpagentshort)
