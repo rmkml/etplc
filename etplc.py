@@ -18,6 +18,7 @@
 # Contact: rmkml@yahoo.fr
 
 # ChangeLog:
+# 13apr2015: first urilen implementation
 # 23fev2015: rewrite to split http host and http uri for better performance + fix pcreagent and pcrereferer
 # 18fev2015: added IIS logs parser, thx Tecko
 #  9jan2015: merge python v2 and v3 and fix apache format logs, thx Alexandre
@@ -98,19 +99,19 @@ else:
 
 ####################################################################################################
 
-urilen1='\s*urilen\:\s*\d*\s*\<?\s*\>?\s*\d+\;'
+urilen1='\s*urilen\:\s*(\d*\s*\<?\s*\>?\s*\d+)\;'
 flowbits1='\s*flowbits\:.*?\;'
 flow1='flow\:\s*(?:to_server|to_client|from_client|from_server)?(?:\s*\,)?(?:established)?(?:\s*\,\s*)?(?:to_server|to_client|from_client|from_server)?\;'
 httpmethod='\s*content\:\"([gG][eE][tT]|[pP][oO][sS][tT]|[hH][eE][aA][dD]|[sS][eE][aA][rR][cC][hH]|[pP][rR][oO][pP][fF][iI][nN][dD]|[tT][rR][aA][cC][eE]|[oO][pP][tT][iI][oO][nN][sS]|[dD][eE][bB][uU][gG]|[cC][oO][nN][nN][eE][cC][tT]|[dD][eE][lL][eE][tT][eE]|[pP][uU][tT])\s*[^\"]*?\"\;(?:\s*(nocase)\;\s*|\s*http_method\;\s*|\s*depth\:\d+\;\s*)*'
 contentoptions1='\s*(fast_pattern)(?:\:only|\:\d+\,\d+)?\;|\s*(nocase)\;|\s*offset\:\d+\;|\s*depth\:\d+\;|\s*distance\:\s*\-?(\d+)\;|\s*within\:(\d+)\;|\s*http_raw_uri\;'
 negateuricontent1='\s*(?:uri)?content\:\!\"[^\"]*?\"\s*\;(?:\s*fast_pattern(?:\:only|\d+\,\d+)?\;|\s*nocase\;|\s*http_uri\;|\s*http_header\;|\s*http_cookie\;|\s*offset\:\d+\;|\s*depth\:\d+\;|\s*http_raw_uri\;|\s*distance\:\s*\-?\d+\;|\s*within\:\d+\;|\s*http_client_body\;)*'
-extracontentoptions='\s*threshold\:.*?\;|\s*flowbits\:.*?\;|\s*isdataat\:\d+(?:\,relative)?\;|\s*dsize\:[\<\>]*\d+\;|\s*urilen\:\s*\d*\s*\<?\s*\>?\s*\d+\;|\s*detection_filter\:.*?\;|\s*priority\:\d+\;|\s*metadata\:.*?\;'
+extracontentoptions='\s*threshold\:.*?\;|\s*flowbits\:.*?\;|\s*isdataat\:\d+(?:\,relative)?\;|\s*dsize\:[\<\>]*\d+\;|\s*detection_filter\:.*?\;|\s*priority\:\d+\;|\s*metadata\:.*?\;'
 referencesidrev='(?:\s*reference\:.*?\;\s*)*\s*classtype\:.*?\;\s*sid\:\d+\;\s*rev\:\d+\;\s*\)\s*'
 pcreuri='\s*pcre\:\"\/(.*?)\/[smiUGDIR]*\"\;' # not header/Cookie/Post_payload!
 pcreagent='\s*pcre\:\"\/(.*?)\/[smiH]*\"\;'
 pcrecookie='\s*pcre\:\"\/(.*?)\/[smiC]*\"\;'
 
-match_http_uri1 = re.compile( r'^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+'+category+'\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:'+flow1+')?(?:'+flowbits1+')?(?:'+urilen1+')?(?:'+httpmethod+')?(?:'+urilen1+')?(?:'+negateuricontent1+')?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*(?:http_uri|http_raw_uri)\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_header\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:'+pcreuri+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_header\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:'+pcreagent+')?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?'+referencesidrev+'$')
+match_http_uri1 = re.compile( r'^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+'+category+'\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:'+flow1+')?(?:'+flowbits1+')?(?:'+urilen1+')?(?:'+httpmethod+')?(?:'+negateuricontent1+')?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*(?:http_uri|http_raw_uri)\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_header\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:'+pcreuri+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_header\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:'+pcreagent+')?(?:'+negateuricontent1+')?(?:'+extracontentoptions+')?'+referencesidrev+'$')
 match_uricontent1 = re.compile( r'^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+'+category+'\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:'+flow1+')?(?:'+urilen1+')?(?:'+httpmethod+')?(?:'+negateuricontent1+')?\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_header\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:\s*(?:uri)?content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*)?(?:'+negateuricontent1+')?(?:'+pcreuri+')?(?:'+extracontentoptions+')?'+referencesidrev+'$')
 match_uriheader1 = re.compile( r'^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+'+category+'\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:'+flowbits1+')?(?:'+flow1+')?(?:'+httpmethod+')?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_uri\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_header\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*(?:\s*http_uri\;)?(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_header\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:'+pcreuri+')?(?:'+extracontentoptions+')?'+referencesidrev+'$')
 match_http_header1 = re.compile( r'^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+'+category+'\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:'+flow1+')?(?:'+urilen1+')?(?:'+httpmethod+')?(?:'+negateuricontent1+')?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_header\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_uri\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_header\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_uri\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_header\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:'+contentoptions1+')*\s*http_uri\;(?:'+contentoptions1+')*(?:'+negateuricontent1+')?)?(?:'+pcreuri+')?(?:'+pcreagent+')?(?:'+extracontentoptions+')?'+referencesidrev+'$')
@@ -152,113 +153,147 @@ def function_replacement_http_agent_short(match):
 
 #######################################################################################
 
+def function_httpurilen_search1(match):
+ uuuu=re.search( r'^(\d+)$', match )	# urilen:80;
+ if uuuu :
+  return uuuu.group(1)
+ else:
+  return
+
+def function_httpurilen_search2(match):
+ uuuu=re.search( r'^\>(\d+)$', match )	# urilen:>80;
+ if uuuu :
+  return uuuu.group(1)
+ else:
+  return
+
+def function_httpurilen_search3(match):
+ uuuu=re.search( r'^\<(\d+)$', match )	# urilen:<80;
+ if uuuu :
+  return uuuu.group(1)
+ else:
+  return
+
+def function_httpurilen_search4(match):
+ uuuu=re.search( r'^(\d+)\<\>(\d+)$', match )	# urilen:25<>45;
+ if uuuu :
+  r = {}
+  r[1] = uuuu.group(1)
+  r[2] = uuuu.group(2)
+  return r
+ else:
+  return
+
+#######################################################################################
+
 def function_match_http_uri( lineet ):
  if debug1: print("brut1: "+lineet)
  etmsg1 = match_http_uri2.group(1)
+ http_urilen1 = match_http_uri2.group(2)
  http_method2 = 0
  http_methodnocase3 = 0
- http_method2 = match_http_uri2.group(2)
- http_methodnocase3 = match_http_uri2.group(3)
- http_uri03 = match_http_uri2.group(4)
- http_urifast5 = match_http_uri2.group(5)
- http_urinocase5 = match_http_uri2.group(6)
- http_urifast9 = match_http_uri2.group(9)
- http_urinocase10 = match_http_uri2.group(10)
- http_uri08 = match_http_uri2.group(13)
- http_urifast14 = match_http_uri2.group(14)
- http_urinocase12 = match_http_uri2.group(15)
- distance9 = match_http_uri2.group(16)
- distance10 = match_http_uri2.group(17)
- http_urifast18 = match_http_uri2.group(18)
- http_urinocase15 = match_http_uri2.group(19)
- distance11 = match_http_uri2.group(20)
- distance12 = match_http_uri2.group(21)
- http_uri13 = match_http_uri2.group(22)
- http_urifast23 = match_http_uri2.group(23)
- http_urinocase19 = match_http_uri2.group(24)
- distance14 = match_http_uri2.group(25)
- distance15 = match_http_uri2.group(26)
- http_urifast27 = match_http_uri2.group(27)
- http_urinocase22 = match_http_uri2.group(28)
- distance16 = match_http_uri2.group(29)
- distance17 = match_http_uri2.group(30)
- http_uri18 = match_http_uri2.group(31)
- http_urifast32 = match_http_uri2.group(32)
- http_urinocase26 = match_http_uri2.group(33)
- distance19 = match_http_uri2.group(34)
- distance20 = match_http_uri2.group(35)
- http_urifast36 = match_http_uri2.group(36)
- http_urinocase29 = match_http_uri2.group(37)
- distance21 = match_http_uri2.group(38)
- distance22 = match_http_uri2.group(39)
- http_uri23 = match_http_uri2.group(40)
- http_urifast41 = match_http_uri2.group(41)
- http_urinocase33 = match_http_uri2.group(42)
- distance24 = match_http_uri2.group(43)
- distance25 = match_http_uri2.group(44)
- http_urifast44 = match_http_uri2.group(45)
- http_urinocase36 = match_http_uri2.group(46)
- distance26 = match_http_uri2.group(47)
- distance27 = match_http_uri2.group(48)
- http_uri28 = match_http_uri2.group(49)
- http_urifast49 = match_http_uri2.group(50)
- http_urinocase40 = match_http_uri2.group(51)
- distance29 = match_http_uri2.group(52)
- distance30 = match_http_uri2.group(53)
- http_urifast54 = match_http_uri2.group(54)
- http_urinocase43 = match_http_uri2.group(55)
- distance31 = match_http_uri2.group(56)
- distance32 = match_http_uri2.group(57)
- http_uri33 = match_http_uri2.group(58)
- http_urifast58 = match_http_uri2.group(59)
- http_urinocase47 = match_http_uri2.group(60)
- distance34 = match_http_uri2.group(61)
- distance35 = match_http_uri2.group(62)
- http_urifast62 = match_http_uri2.group(63)
- http_urinocase50 = match_http_uri2.group(64)
- distance36 = match_http_uri2.group(65)
- distance37 = match_http_uri2.group(66)
- http_uri38 = match_http_uri2.group(67)
- http_urinocase54 = match_http_uri2.group(68)
- http_urinocase57 = match_http_uri2.group(57)
- http_uri43 = match_http_uri2.group(60)
- http_urinocase61 = match_http_uri2.group(61)
- http_urinocase64 = match_http_uri2.group(64)
- http_uri48 = match_http_uri2.group(67)
- http_urinocase68 = match_http_uri2.group(68)
- http_urinocase71 = match_http_uri2.group(71)
- http_uri53 = match_http_uri2.group(74)
- http_urinocase75 = match_http_uri2.group(75)
- http_urinocase78 = match_http_uri2.group(78)
- http_uri58 = match_http_uri2.group(81)
- http_urinocase82 = match_http_uri2.group(82)
- http_urinocase85 = match_http_uri2.group(85)
- http_uri63 = match_http_uri2.group(88)
- http_urinocase89 = match_http_uri2.group(89)
- http_urinocase92 = match_http_uri2.group(92)
- http_header68 = match_http_uri2.group(95)
- http_headernocase96 = match_http_uri2.group(96)
- http_headernocase99 = match_http_uri2.group(99)
- http_header121 = match_http_uri2.group(121)
- http_headerfast122 = match_http_uri2.group(122)
- http_headernocase123 = match_http_uri2.group(123)
- distance124 = match_http_uri2.group(124)
- distance125 = match_http_uri2.group(125)
- http_headerfast126 = match_http_uri2.group(126)
- http_headernocase127 = match_http_uri2.group(127)
- distance128 = match_http_uri2.group(128)
- distance129 = match_http_uri2.group(129)
- pcre_uri73 = match_http_uri2.group(130)
- http_header74 = match_http_uri2.group(131)
- http_headerfast132 = match_http_uri2.group(132)
- http_headernocase104 = match_http_uri2.group(133)
- distance75 = match_http_uri2.group(134)
- distance76 = match_http_uri2.group(135)
- http_headerfast136 = match_http_uri2.group(136)
- http_headernocase107 = match_http_uri2.group(137)
- distance77 = match_http_uri2.group(138)
- distance78 = match_http_uri2.group(139)
- pcre_agent79 = match_http_uri2.group(140)
+ http_method2 = match_http_uri2.group(3)
+ http_methodnocase3 = match_http_uri2.group(4)
+ http_uri03 = match_http_uri2.group(5)
+ http_urifast5 = match_http_uri2.group(6)
+ http_urinocase5 = match_http_uri2.group(7)
+ http_urifast9 = match_http_uri2.group(10)
+ http_urinocase10 = match_http_uri2.group(11)
+ http_uri08 = match_http_uri2.group(14)
+ http_urifast14 = match_http_uri2.group(15)
+ http_urinocase12 = match_http_uri2.group(16)
+ distance9 = match_http_uri2.group(17)
+ distance10 = match_http_uri2.group(18)
+ http_urifast18 = match_http_uri2.group(19)
+ http_urinocase15 = match_http_uri2.group(20)
+ distance11 = match_http_uri2.group(21)
+ distance12 = match_http_uri2.group(22)
+ http_uri13 = match_http_uri2.group(23)
+ http_urifast23 = match_http_uri2.group(24)
+ http_urinocase19 = match_http_uri2.group(25)
+ distance14 = match_http_uri2.group(26)
+ distance15 = match_http_uri2.group(27)
+ http_urifast27 = match_http_uri2.group(28)
+ http_urinocase22 = match_http_uri2.group(29)
+ distance16 = match_http_uri2.group(30)
+ distance17 = match_http_uri2.group(31)
+ http_uri18 = match_http_uri2.group(32)
+ http_urifast32 = match_http_uri2.group(33)
+ http_urinocase26 = match_http_uri2.group(34)
+ distance19 = match_http_uri2.group(35)
+ distance20 = match_http_uri2.group(36)
+ http_urifast36 = match_http_uri2.group(37)
+ http_urinocase29 = match_http_uri2.group(38)
+ distance21 = match_http_uri2.group(39)
+ distance22 = match_http_uri2.group(40)
+ http_uri23 = match_http_uri2.group(41)
+ http_urifast41 = match_http_uri2.group(42)
+ http_urinocase33 = match_http_uri2.group(43)
+ distance24 = match_http_uri2.group(44)
+ distance25 = match_http_uri2.group(45)
+ http_urifast44 = match_http_uri2.group(46)
+ http_urinocase36 = match_http_uri2.group(47)
+ distance26 = match_http_uri2.group(48)
+ distance27 = match_http_uri2.group(49)
+ http_uri28 = match_http_uri2.group(50)
+ http_urifast49 = match_http_uri2.group(51)
+ http_urinocase40 = match_http_uri2.group(52)
+ distance29 = match_http_uri2.group(53)
+ distance30 = match_http_uri2.group(54)
+ http_urifast54 = match_http_uri2.group(55)
+ http_urinocase43 = match_http_uri2.group(56)
+ distance31 = match_http_uri2.group(57)
+ distance32 = match_http_uri2.group(58)
+ http_uri33 = match_http_uri2.group(59)
+ http_urifast58 = match_http_uri2.group(60)
+ http_urinocase47 = match_http_uri2.group(61)
+ distance34 = match_http_uri2.group(62)
+ distance35 = match_http_uri2.group(63)
+ http_urifast62 = match_http_uri2.group(64)
+ http_urinocase50 = match_http_uri2.group(65)
+ distance36 = match_http_uri2.group(66)
+ distance37 = match_http_uri2.group(67)
+ http_uri38 = match_http_uri2.group(68)
+ http_urinocase54 = match_http_uri2.group(69)
+ http_urinocase57 = match_http_uri2.group(58)
+ http_uri43 = match_http_uri2.group(61)
+ http_urinocase61 = match_http_uri2.group(62)
+ http_urinocase64 = match_http_uri2.group(65)
+ http_uri48 = match_http_uri2.group(68)
+ http_urinocase68 = match_http_uri2.group(69)
+ http_urinocase71 = match_http_uri2.group(72)
+ http_uri53 = match_http_uri2.group(75)
+ http_urinocase75 = match_http_uri2.group(76)
+ http_urinocase78 = match_http_uri2.group(79)
+ http_uri58 = match_http_uri2.group(82)
+ http_urinocase82 = match_http_uri2.group(83)
+ http_urinocase85 = match_http_uri2.group(86)
+ http_uri63 = match_http_uri2.group(89)
+ http_urinocase89 = match_http_uri2.group(90)
+ http_urinocase92 = match_http_uri2.group(93)
+ http_header68 = match_http_uri2.group(96)
+ http_headernocase96 = match_http_uri2.group(97)
+ http_headernocase99 = match_http_uri2.group(100)
+ http_header121 = match_http_uri2.group(122)
+ http_headerfast122 = match_http_uri2.group(123)
+ http_headernocase123 = match_http_uri2.group(124)
+ distance124 = match_http_uri2.group(125)
+ distance125 = match_http_uri2.group(126)
+ http_headerfast126 = match_http_uri2.group(127)
+ http_headernocase127 = match_http_uri2.group(128)
+ distance128 = match_http_uri2.group(129)
+ distance129 = match_http_uri2.group(130)
+ pcre_uri73 = match_http_uri2.group(131)
+ http_header74 = match_http_uri2.group(132)
+ http_headerfast132 = match_http_uri2.group(133)
+ http_headernocase104 = match_http_uri2.group(134)
+ distance75 = match_http_uri2.group(135)
+ distance76 = match_http_uri2.group(136)
+ http_headerfast136 = match_http_uri2.group(137)
+ http_headernocase107 = match_http_uri2.group(138)
+ distance77 = match_http_uri2.group(139)
+ distance78 = match_http_uri2.group(140)
+ pcre_agent79 = match_http_uri2.group(141)
 
  # check what is http_uri best length ?
  httpuricourt=0
@@ -1502,6 +1537,7 @@ def function_match_http_uri( lineet ):
  if debug1 and tableauuridistance1: print("tableauuridistance1: "+etmsg1+", "+str(tableauuridistance1))
  if debug1 and httphost:            print("httphost1: "+etmsg1+", "+httphost.lower())
  if debug1 and pcrehost:            print("tableaupcrehost1: "+etmsg1+", "+pcrehost.lower())
+ if debug1 and http_urilen1:        print("http_urilen1: "+etmsg1+", "+http_urilen1)
 
  if httpuricourt:        dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if httpagentshort:      dict[(etmsg1, 'httpagentshort')] = httpagentshort.lower()
@@ -1514,6 +1550,7 @@ def function_match_http_uri( lineet ):
  if tableauuridistance1: dict[(etmsg1, 'httpurilongdistance')] = tableauuridistance1
  if httphost:            dict[(etmsg1, 'httphost')] = httphost.lower()
  if pcrehost:            dict[(etmsg1, 'pcrehost')] = pcrehost.lower()
+ if http_urilen1:        dict[(etmsg1, 'httpurilen')] = http_urilen1
 
  return; # function_match_http_uri()
 
@@ -1522,26 +1559,27 @@ def function_match_http_uri( lineet ):
 def function_match_uricontent( lineet ):
  if debug1: print("brut2: "+lineet)
  etmsg1 = match_uricontent2.group(1)
+ http_urilen2 = match_uricontent2.group(2)
  http_method2 = 0
  http_methodnocase3 = 0
- http_method2 = match_uricontent2.group(2)
- http_methodnocase3 = match_uricontent2.group(3)
- http_uri03 = match_uricontent2.group(4)
- http_urifast5 = match_uricontent2.group(5)
- http_urinocase5 = match_uricontent2.group(6)
- http_header06 = match_uricontent2.group(8)
- http_headernocase9 = match_uricontent2.group(9)
- http_headernocase12 = match_uricontent2.group(12)
- http_uri11 = match_uricontent2.group(18)
- http_urifast19 = match_uricontent2.group(19)
- http_urinocase16 = match_uricontent2.group(20)
- http_uri14 = match_uricontent2.group(23)
- http_urifast24 = match_uricontent2.group(24)
- http_urinocase20 = match_uricontent2.group(25)
- http_uri17 = match_uricontent2.group(28)
- http_urifast29 = match_uricontent2.group(29)
- http_urinocase23 = match_uricontent2.group(30)
- pcre_uri20 = match_uricontent2.group(33)
+ http_method2 = match_uricontent2.group(3)
+ http_methodnocase3 = match_uricontent2.group(4)
+ http_uri03 = match_uricontent2.group(5)
+ http_urifast5 = match_uricontent2.group(6)
+ http_urinocase5 = match_uricontent2.group(7)
+ http_header06 = match_uricontent2.group(9)
+ http_headernocase9 = match_uricontent2.group(10)
+ http_headernocase12 = match_uricontent2.group(13)
+ http_uri11 = match_uricontent2.group(19)
+ http_urifast19 = match_uricontent2.group(20)
+ http_urinocase16 = match_uricontent2.group(21)
+ http_uri14 = match_uricontent2.group(24)
+ http_urifast24 = match_uricontent2.group(25)
+ http_urinocase20 = match_uricontent2.group(26)
+ http_uri17 = match_uricontent2.group(29)
+ http_urifast29 = match_uricontent2.group(30)
+ http_urinocase23 = match_uricontent2.group(31)
+ pcre_uri20 = match_uricontent2.group(34)
 
  # check what is http_uri best length ?
  httpuricourt=0
@@ -1850,6 +1888,7 @@ def function_match_uricontent( lineet ):
  if debug1 and httppcreagent:  print("tableaupcreagent2: "+etmsg1+", "+str((httppcreagent, httppcreagent_nocase)))
  if debug1 and httpagentshort: print("httpagentshort2: "+etmsg1+", "+httpagentshort.lower())
  if debug1 and http_method2:   print("tableauhttpmethod2: "+etmsg1+", "+str((http_method2, http_methodnocase3)))
+ if debug1 and http_urilen2:   print("http_urilen2: "+etmsg1+", "+http_urilen2)
 
  if httpuricourt:   dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if httpagentshort: dict[(etmsg1, 'httpagentshort')] = httpagentshort.lower()
@@ -1857,6 +1896,7 @@ def function_match_uricontent( lineet ):
  if abc1:           dict[(etmsg1, 'pcreuri')] = (abc1, abc1_nocase)
  if httppcreagent:  dict[(etmsg1, 'pcreagent')] = (httppcreagent, httppcreagent_nocase)
  if tableauuri1:    dict[(etmsg1, 'httpurilong')] = tableauuri1
+ if http_urilen2:   dict[(etmsg1, 'httpurilen')] = http_urilen2
 
  return; # function_match_uricontent()
 
@@ -2260,58 +2300,59 @@ def function_match_uriheader( lineet ):
 def function_match_http_header( lineet ):
  if debug1: print("brut4: "+lineet)
  etmsg1 = match_http_header2.group(1)
+ http_urilen4 = match_http_header2.group(2)
  http_method2 = 0
  http_methodnocase3 = 0
- http_method2 = match_http_header2.group(2)
- http_methodnocase3 = match_http_header2.group(3)
- http_header03 = match_http_header2.group(4)
- http_headerfast5 = match_http_header2.group(5)
- http_headernocase5 = match_http_header2.group(6)
- http_headerfast9 = match_http_header2.group(9)
- http_headernocase8 = match_http_header2.group(10)
- http_uri08 = match_http_header2.group(13)
- http_urifast14 = match_http_header2.group(14)
- http_urinocase12 = match_http_header2.group(15)
- http_urifast18 = match_http_header2.group(18)
- http_urinocase15 = match_http_header2.group(19)
- http_header13 = match_http_header2.group(22)
- http_headerfast23 = match_http_header2.group(23)
- http_headernocase19 = match_http_header2.group(24)
- distance14 = match_http_header2.group(25)
- distance15 = match_http_header2.group(26)
- http_headerfast27 = match_http_header2.group(27)
- http_headernocase22 = match_http_header2.group(28)
- distance16 = match_http_header2.group(29)
- distance17 = match_http_header2.group(30)
- http_uri18 = match_http_header2.group(31)
- http_urifast32 = match_http_header2.group(32)
- http_urinocase25 = match_http_header2.group(33)
- distance19 = match_http_header2.group(34)
- distance20 = match_http_header2.group(35)
- http_urifast36 = match_http_header2.group(36)
- http_urinocase28 = match_http_header2.group(37)
- distance21 = match_http_header2.group(38)
- distance22 = match_http_header2.group(39)
- http_header23 = match_http_header2.group(40)
- http_headerfast41 = match_http_header2.group(41)
- http_headernocase32 = match_http_header2.group(42)
- distance24 = match_http_header2.group(43)
- distance25 = match_http_header2.group(44)
- http_headerfast45 = match_http_header2.group(45)
- http_headernocase35 = match_http_header2.group(46)
- distance26 = match_http_header2.group(47)
- distance27 = match_http_header2.group(48)
- http_uri28 = match_http_header2.group(49)
- http_urifast50 = match_http_header2.group(50)
- http_urinocase39 = match_http_header2.group(51)
- distance29 = match_http_header2.group(52)
- distance30 = match_http_header2.group(53)
- http_urifast54 = match_http_header2.group(54)
- http_urinocase42 = match_http_header2.group(55)
- distance31 = match_http_header2.group(56)
- distance32 = match_http_header2.group(57)
- pcre_uri33 = match_http_header2.group(58)
- pcre_agent34 = match_http_header2.group(59)
+ http_method2 = match_http_header2.group(3)
+ http_methodnocase3 = match_http_header2.group(4)
+ http_header03 = match_http_header2.group(5)
+ http_headerfast5 = match_http_header2.group(6)
+ http_headernocase5 = match_http_header2.group(7)
+ http_headerfast9 = match_http_header2.group(10)
+ http_headernocase8 = match_http_header2.group(11)
+ http_uri08 = match_http_header2.group(14)
+ http_urifast14 = match_http_header2.group(15)
+ http_urinocase12 = match_http_header2.group(16)
+ http_urifast18 = match_http_header2.group(19)
+ http_urinocase15 = match_http_header2.group(20)
+ http_header13 = match_http_header2.group(23)
+ http_headerfast23 = match_http_header2.group(24)
+ http_headernocase19 = match_http_header2.group(25)
+ distance14 = match_http_header2.group(26)
+ distance15 = match_http_header2.group(27)
+ http_headerfast27 = match_http_header2.group(28)
+ http_headernocase22 = match_http_header2.group(29)
+ distance16 = match_http_header2.group(30)
+ distance17 = match_http_header2.group(31)
+ http_uri18 = match_http_header2.group(32)
+ http_urifast32 = match_http_header2.group(33)
+ http_urinocase25 = match_http_header2.group(34)
+ distance19 = match_http_header2.group(35)
+ distance20 = match_http_header2.group(36)
+ http_urifast36 = match_http_header2.group(37)
+ http_urinocase28 = match_http_header2.group(38)
+ distance21 = match_http_header2.group(39)
+ distance22 = match_http_header2.group(40)
+ http_header23 = match_http_header2.group(41)
+ http_headerfast41 = match_http_header2.group(42)
+ http_headernocase32 = match_http_header2.group(43)
+ distance24 = match_http_header2.group(44)
+ distance25 = match_http_header2.group(45)
+ http_headerfast45 = match_http_header2.group(46)
+ http_headernocase35 = match_http_header2.group(47)
+ distance26 = match_http_header2.group(48)
+ distance27 = match_http_header2.group(49)
+ http_uri28 = match_http_header2.group(50)
+ http_urifast50 = match_http_header2.group(51)
+ http_urinocase39 = match_http_header2.group(52)
+ distance29 = match_http_header2.group(53)
+ distance30 = match_http_header2.group(54)
+ http_urifast54 = match_http_header2.group(55)
+ http_urinocase42 = match_http_header2.group(56)
+ distance31 = match_http_header2.group(57)
+ distance32 = match_http_header2.group(58)
+ pcre_uri33 = match_http_header2.group(59)
+ pcre_agent34 = match_http_header2.group(60)
 
  # check what is http_uri best length ?
  httpuricourt=0
@@ -3161,6 +3202,7 @@ def function_match_http_header( lineet ):
  if debug1 and cookiepcre:     print("tableaupcrecookie4: "+etmsg1+", "+cookiepcre)
  if debug1 and httphost:       print("httphost4: "+etmsg1+", "+httphost.lower())
  if debug1 and pcrehost:       print("tableaupcrehost4: "+etmsg1+", "+pcrehost.lower())
+ if debug1 and http_urilen4:   print("http_urilen4: "+etmsg1+", "+http_urilen4)
 
  if httpuricourt:   dict[(etmsg1, 'httpuricourt')] = httpuricourt.lower()
  if httpagentshort: dict[(etmsg1, 'httpagentshort')] = httpagentshort.lower()
@@ -3174,6 +3216,7 @@ def function_match_http_header( lineet ):
  if cookiepcre:     dict[(etmsg1, 'pcrecookie')] = cookiepcre
  if httphost:       dict[(etmsg1, 'httphost')] = httphost.lower()
  if pcrehost:       dict[(etmsg1, 'pcrehost')] = pcrehost.lower()
+ if http_urilen4:   dict[(etmsg1, 'httpurilen')] = http_urilen4
 
  return; # function_match_http_header()
 
@@ -3652,6 +3695,7 @@ def function_logsandsearch( looplogs):
   foundremoteip=0
   foundhost=0
   foundpcrehost=0
+  foundurilen=0
   etmsg_old=0
   paslememe=0
 
@@ -3675,7 +3719,7 @@ def function_logsandsearch( looplogs):
     jump=0 # required here for global variables
     paslememe=1
 
-   if paslememe and not jump and ( foundmethod or founduricourt or foundurilong or foundurilongdistance or foundagent or foundreferer or foundpcrereferer or foundpcreagent or foundcookie or foundpcrecookie or foundpcreuri or foundremoteip or foundhost or foundpcrehost ):
+   if paslememe and not jump and ( foundmethod or founduricourt or foundurilong or foundurilongdistance or foundagent or foundreferer or foundpcrereferer or foundpcreagent or foundcookie or foundpcrecookie or foundpcreuri or foundremoteip or foundhost or foundpcrehost or foundurilen ):
     if debug2: print("ok ici10")
     alertetplc = "ok trouvé: "
     if timestamp_central:     alertetplc += "timestamp: "+timestamp_central+", "
@@ -3705,6 +3749,7 @@ def function_logsandsearch( looplogs):
     if foundremoteip:         alertetplc += ", etremoteip: "+foundremoteip
     if foundhost:             alertetplc += ", ethost: "+foundhost
     if foundpcrehost:         alertetplc += ", etpcrehost: "+foundpcrehost
+    if foundurilen:           alertetplc += ", eturilen: "+foundurilen
     alertetplc += "\n"
     if args.s:
      syslog.sendall( socketgethostname+" etplc: "+alertetplc )
@@ -3727,6 +3772,7 @@ def function_logsandsearch( looplogs):
     foundremoteip=0
     foundhost=0
     foundpcrehost=0
+    foundurilen=0
 
    etmsg_old=etmsg
    if debug2: print("hash2 etmsg: "+etmsg+", clef: "+clef+", values: "+str(values))
@@ -3756,6 +3802,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
    elif clef == "httpuricourt" and not jump:
@@ -3780,6 +3827,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
    elif clef == "httpurilong" and not jump:
@@ -3805,7 +3853,50 @@ def function_logsandsearch( looplogs):
       foundremoteip=0
       foundhost=0
       foundpcrehost=0
+      foundurilen=0
       next
+
+   elif clef == "httpurilen" and not jump:
+    if debug2: print("ok ici15")
+    back1 = function_httpurilen_search1(str(values))
+    back2 = function_httpurilen_search2(str(values))
+    back3 = function_httpurilen_search3(str(values))
+    back4 = {}
+    back4 = function_httpurilen_search4(str(values))
+    if back4:
+     back4a=back4[1]
+     back4b=back4[2]
+    if client_http_uri and re.search( r'^\d+$', str(values) ) and str(client_http_uri.__len__()) == back1 :	# urilen:80;
+     if debug2: print("ici15a: "+str(values))
+     foundurilen=str(values)
+    elif client_http_uri and re.search( r'^\>\d+$', str(values) ) and str(client_http_uri.__len__()) > back2 :	# urilen:>80;
+     if debug2: print("ici15b: "+str(values))
+     foundurilen=str(values)
+    elif client_http_uri and re.search( r'^\<\d+$', str(values) ) and str(client_http_uri.__len__()) < back3 :	# urilen:<80;
+     if debug2: print("ici15c: "+str(values))
+     foundurilen=str(values)
+    elif client_http_uri and re.search( r'^\d+\<\>\d+$', str(values) ) and str(client_http_uri.__len__()) > back4a and str(client_http_uri.__len__()) < back4b :	# urilen:25<>45;
+     if debug2: print("ici15d: "+str(values))
+     foundurilen=str(values)
+    elif values:
+     if debug2: print("urilen not found15: jump ("+str(values)+" and "+str(client_http_uri.__len__())+")")
+     jump=1
+     foundmethod=0
+     founduricourt=0
+     foundurilong=0
+     foundurilongdistance=0
+     foundagent=0
+     foundreferer=0
+     foundpcrereferer=0
+     foundpcreagent=0
+     foundcookie=0
+     foundpcrecookie=0
+     foundpcreuri=0
+     foundremoteip=0
+     foundhost=0
+     foundpcrehost=0
+     foundurilen=0
+     next
 
    elif clef == "httpurilongdistance" and not jump:
     if debug2: print("ok ici9")
@@ -3830,6 +3921,7 @@ def function_logsandsearch( looplogs):
       foundremoteip=0
       foundhost=0
       foundpcrehost=0
+      foundurilen=0
       next
 
    elif clef == "httpagentshort" and not jump:
@@ -3854,6 +3946,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
    elif clef == "httpreferer" and not jump:
@@ -3878,6 +3971,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
    elif clef == "httpcookie" and not jump:
@@ -3905,6 +3999,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
  
    elif clef == "httphost" and not jump:
@@ -3929,6 +4024,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
    elif clef == "pcrereferer" and not jump:
@@ -3957,6 +4053,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
    elif clef == "pcreagent" and not jump:
@@ -3989,6 +4086,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
    elif clef == "pcrecookie" and not jump:
@@ -4013,6 +4111,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
    elif clef == "pcreuri" and not jump:
@@ -4040,6 +4139,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
    elif clef == "pcrehost" and not jump:
@@ -4064,6 +4164,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
    elif clef == "remoteip" and not jump:
@@ -4090,6 +4191,7 @@ def function_logsandsearch( looplogs):
      foundremoteip=0
      foundhost=0
      foundpcrehost=0
+     foundurilen=0
      next
 
  return; # function_logsandsearch()
