@@ -19,6 +19,11 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+#  9jul2015: major rewrite and add uri depth/offset signature parser
+# 30jun2015: remove legacy code
+# 10jun2015: again enhance BlueCoat parser format
+# 30may2015: enhance BlueCoat parser format, thx Bernie
+# 27apr2015: add WebSense logs parser
 # 13apr2015: first urilen implementation
 # 12apr2015: fix old etplc perl print thread bug (added lock)
 #  6mar2015: enhance BlueCoat parser format
@@ -66,6 +71,8 @@
 
 use strict;
 use warnings;
+
+# for "syslog" like
 use IO::Socket::INET;
 
 # sudo aptitude install liburi-escape-xs-perl # ubuntu
@@ -100,7 +107,6 @@ my $output_escape;
 my @tableauuricontent;
 my @tableauuseragent;
 my @tableauhttpmethod;
-my $max_procs=0;
 my %hash;
 my $etmsg;
 my $clef;
@@ -152,17 +158,21 @@ else
  print "==================================================\n";
  exit;
 }
+
 $debug1=1 && $debug2=1 if $debug;
+
 if( $syslog )
 {
  $syslogsock = new IO::Socket::INET(PeerAddr=>$syslogip,PeerPort=>$syslogport,Proto=>$syslogproto); die "Syslog Socket could not be created on $syslogproto $syslogip:$syslogport: $!\n" unless $syslogsock;
 }
+
 $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $category =~ /^webserver$/i;
 $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)' if $category =~ /^proxy$/i;
 
 ####################################################################################################
 
-if( open(CPUINFO, "/proc/cpuinfo") )
+my $max_procs=0;
+if( open(CPUINFO, "/proc/cpuinfo") && !$debug1)
 {
  foreach( <CPUINFO> )
  {
@@ -184,7 +194,7 @@ close CPUINFO;
  my $flowbits1='\s*flowbits\:.*?\;';
  my $flow1='flow\:\s*(?:to_server|to_client|from_client|from_server)?(?:\s*\,)?(?:established)?(?:\s*\,\s*)?(?:to_server|to_client|from_client|from_server)?\;';
  my $httpmethod='\s*content\:\"([gG][eE][tT]|[pP][oO][sS][tT]|[hH][eE][aA][dD]|[sS][eE][aA][rR][cC][hH]|[pP][rR][oO][pP][fF][iI][nN][dD]|[tT][rR][aA][cC][eE]|[oO][pP][tT][iI][oO][nN][sS]|[dD][eE][bB][uU][gG]|[cC][oO][nN][nN][eE][cC][tT]|[dD][eE][lL][eE][tT][eE]|[pP][uU][tT])\s*[^\"]*?\"\;(?:\s*(nocase)\;\s*|\s*http_method\;\s*|\s*depth\:\d+\;\s*)*';
- my $contentoptions1='\s*(fast_pattern)(?:\:only|\:\d+\,\d+)?\;|\s*(nocase)\;|\s*offset\:\d+\;|\s*depth\:\d+\;|\s*distance\:\s*\-?(\d+)\;|\s*within\:(\d+)\;|\s*http_raw_uri\;';
+ my $contentoptions1='\s*(fast_pattern)(?:\:only|\:\d+\,\d+)?\;|\s*(nocase)\;|\s*offset\:(\d+)\;|\s*depth\:(\d+)\;|\s*distance\:\s*\-?(\d+)\;|\s*within\:(\d+)\;|\s*http_raw_uri\;';
  my $negateuricontent1='\s*(?:uri)?content\:\!\"[^\"]*?\"\s*\;(?:\s*fast_pattern(?:\:only|\d+\,\d+)?\;|\s*nocase\;|\s*http_uri\;|\s*http_header\;|\s*http_cookie\;|\s*offset\:\d+\;|\s*depth\:\d+\;|\s*http_raw_uri\;|\s*distance\:\s*\-?\d+\;|\s*within\:\d+\;|\s*http_client_body\;)*';
  my $extracontentoptions='\s*threshold\:.*?\;|\s*flowbits\:.*?\;|\s*isdataat\:\d+(?:\,relative)?\;|\s*dsize\:[\<\>]*\d+\;|\s*detection_filter\:.*?\;|\s*priority\:\d+\;|\s*metadata\:.*?\;';
  my $referencesidrev='(?:\s*reference\:.*?\;\s*)*\s*classtype\:.*?\;\s*sid\:\d+\;\s*rev\:\d+\;\s*\)\s*';
@@ -232,115 +242,235 @@ foreach $_ ( @fileemergingthreats )
  # begin http_uri
  elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$flowbits1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*(?:http_uri|http_raw_uri)\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreagent)?(?:$negateuricontent1)?(?:$extracontentoptions)?$referencesidrev$/ )
  {
-  my $etmsg1=$1;
-  my $http_urilen=$2 if $2;
-  my $http_method2=0;
-  my $http_methodnocase3=0;
-  print "brut1: $_\n" if $debug1;
-  #print "here1: 1: $1, 2: $2, 3: $3, 4: $4, 5: $5, 6: $6, 7: $7, 8: $8, 9: $9, 10: $10, 11: $11, 12: $12, 13: $13, 14: $14, 15: $15, 16: $16, 17: $17, 18: $18, 19: $19, 20: $20, 21: $21, 22: $22, 23: $23, 24: $24, 25: $25, 26: $26, 27: $27, 28: $28, 29: $29, 30: $30, 31: $31, 32: $32, 33: $33, 34: $34, 35: $35, 36: $36, 37: $37, $38, $39, 40: $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, 50: $50, $51, $52, $53, 54: $54, $55, $56, $57, $58, $59, 60: $60, $61, $62, $63, $64, $65, $66, $67, $68, $69, 70: $70, $71, $72, $73, $74, $75, $76, $77, $78, $79, 80: $80, $81, $82, $83, $84, $85, $86, $87, $88, $89, 90: $90, $91, $92, $93, $94, 95: $95, $96, $97, $98, $99, 100: $100, $101, $102, 103: $103, $104, $105, $106, $107, $108, $109, 110: $110, $111, $112, $113, $114, $115, $116, $117, $118, $119, 120: $120, 121: $121, $122, $123, $124, $125, $126, $127, $128, $129, 130: $130, $131, $132, $133, $134, $135, $136, $137, $138, $139, 140: $140\n" if $debug1;
+  my $http_method1=0;
+  my $http_methodnocase1=0;
+  my $http_urioffset=0;
+  my $http_uridepth=0;
+  #
+  if( $debug1 ){
+   print "brut1: $_\n"; print "here1: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32," if $32; print " 33: $33," if $33; print " 34: $34," if $34; print " 35: $35," if $35; print " 36: $36," if $36; print " 37: $37," if $37; print " 38: $38," if $38; print " 39: $39," if $39; print " 40: $40," if $40; print " 41: $41," if $41; print " 42: $42," if $42; print " 43: $43," if $43; print " 44: $44," if $44; print " 45: $45," if $45; print " 46: $46," if $46; print " 47: $47," if $47; print " 48: $48," if $48; print " 49: $49," if $49; print " 50: $50," if $50; print " 51: $51," if $51; print " 52: $52," if $52; print " 53: $53," if $53; print " 54: $54," if $54; print " 55: $55," if $55; print " 56: $56," if $56; print " 57: $57," if $57; print " 58: $58," if $58; print " 59: $59," if $59; print " 60: $60," if $60; print " 61: $61," if $61; print " 62: $62," if $62; print " 63: $63," if $63; print " 64: $64," if $64; print " 65: $65," if $65; print " 66: $66," if $66; print " 67: $67," if $67; print " 68: $68," if $68; print " 69: $69," if $69; print " 70: $70," if $70; print " 71: $71," if $71; print " 72: $72," if $72; print " 73: $73," if $73; print " 74: $74," if $74; print " 75: $75," if $75; print " 76: $76," if $76; print " 77: $77," if $77; print " 78: $78," if $78; print " 79: $79," if $79; print " 80: $80," if $80; print " 81: $81," if $81; print " 82: $82," if $82; print " 83: $83," if $83; print " 84: $84," if $84; print " 85: $85," if $85; print " 86: $86," if $86; print " 87: $87," if $87; print " 88: $88," if $88; print " 89: $89," if $89; print " 90: $90," if $90; print " 91: $91," if $91; print " 92: $92," if $92; print " 93: $93," if $93; print " 94: $94," if $94; print " 95: $95," if $95; print " 96: $96," if $96; print " 97: $97," if $97; print " 98: $98," if $98; print " 99: $99," if $99; print " 100: $100," if $100; print " 101: $101," if $101; print " 102: $102," if $102; print " 103: $103," if $103; print " 104: $104," if $104; print " 105: $105," if $105; print " 106: $106," if $106; print " 107: $107," if $107; print " 108: $108," if $108; print " 109: $109," if $109; print " 110: $110," if $110; print " 111: $111," if $111; print " 112: $112," if $112; print " 113: $113," if $113; print " 114: $114," if $114; print " 115: $115," if $115; print " 116: $116," if $116; print " 117: $117," if $117; print " 118: $118," if $118; print " 119: $119," if $119; print " 120: $120," if $120; print " 121: $121," if $121; print " 122: $122," if $122; print " 123: $123," if $123; print " 124: $124," if $124; print " 125: $125," if $125; print " 126: $126," if $126; print " 127: $127," if $127; print " 128: $128," if $128; print " 129: $129," if $129; print " 130: $130," if $130; print " 131: $131," if $131; print " 132: $132," if $132; print " 133: $133," if $133; print " 134: $134," if $134; print " 135: $135," if $135; print " 136: $136," if $136; print " 137: $137," if $137; print " 138: $138," if $138; print " 139: $139," if $139; print " 140: $140," if $140; print " 141: $141," if $141; print " 142: $142," if $142; print " 143: $143" if $143; print " 144: $144," if $144; print " 145: $145," if $145; print " 146: $146," if $146; print " 147: $147," if $147; print " 148: $148," if $148; print " 149: $149," if $149; print " 150: $150," if $150; print " 151: $151," if $151; print " 152: $152," if $152; print " 153: $153," if $153; print " 154: $154," if $154; print " 155: $155," if $155; print " 156: $156," if $156; print " 157: $157," if $157; print " 158: $158," if $158; print " 159: $159," if $159; print " 160: $160," if $160; print " 161: $161," if $161; print " 162: $162," if $162; print " 163: $163," if $163; print " 164: $164," if $164; print " 165: $165," if $165; print " 166: $166," if $166; print " 167: $167," if $167; print " 168: $168," if $168; print " 169: $169," if $169; print " 170: $170," if $170; print " 171: $171," if $171; print " 172: $172," if $172; print " 173: $173," if $173; print " 174: $174," if $174; print " 175: $175," if $175; print " 176: $176," if $176; print " 177: $177," if $177; print " 178: $178," if $178; print " 179: $179," if $179; print " 180: $180," if $180; print " 181: $181," if $181; print " 182: $182," if $182; print " 183: $183," if $183; print " 184: $184," if $184; print " 185: $185," if $185; print " 186: $186," if $186; print " 187: $187," if $187; print " 188: $188," if $188; print " 189: $189," if $189; print " 190: $190," if $190; print " 191: $191," if $191; print " 192: $192," if $192; print " 193: $193," if $193; print " 194: $194," if $194; print " 195: $195," if $195; print " 196: $196," if $196; print " 197: $197," if $197; print " 198: $198," if $198; print " 199: $199," if $199; print " 200: $200," if $200; print " 201: $201," if $201; print " 202: $202," if $202; print " 203: $203," if $203; print " 204: $204," if $204; print " 205: $205," if $205; print "\n";
+  }
 
-     $http_method2=$3 if $3;
-     $http_methodnocase3=$4 if $4;
-  my $http_uri03=$5 if $5;
+  my $etmsg1=$1;
+  #
+  my $http_urilen1=$2 if $2;
+  #
+     $http_method1=$3 if $3;
+     $http_methodnocase1=$4 if $4;
+  #
+  my $http_uri03=$5 if $5;		# old 5
   my $http_urifast5=$6 if $6;
-  my $http_urinocase5=$7 if $7;		# 5
-  my $http_urifast9=$10 if $10;
-  my $http_urinocase10=$11 if $11;
-  my $http_uri08=$14 if $14;		# 11
-  my $http_urifast14=$15 if $15;
-  my $http_urinocase12=$16 if $16;	# 12
-  my $distance9=$17 if defined($17);	# 13
-  my $distance10=$18 if defined($18);	# 14
-  my $http_urifast18=$19 if $19;
-  my $http_urinocase15=$20 if $20;	# 15
-  my $distance11=$21 if defined($21);	# 16
-  my $distance12=$22 if defined($22);	# 17
-  my $http_uri13=$23 if $23;		# 18
-  my $http_urifast23=$24 if $24;
-  my $http_urinocase19=$25 if $25;	# 19
-  my $distance14=$26 if defined($26);	# 20
-  my $distance15=$27 if defined($27);	# 21
-  my $http_urifast27=$28 if $28;
-  my $http_urinocase22=$29 if $29;	# 22
-  my $distance16=$30 if defined($30);	# 23
-  my $distance17=$31 if defined($31);	# 24
-  my $http_uri18=$32 if $32;		# 25
-  my $http_urifast32=$33 if $33;
-  my $http_urinocase26=$34 if $34;	# 26
-  my $distance19=$35 if defined($35);	# 27
-  my $distance20=$36 if defined($36);	# 28
-  my $http_urifast36=$37 if $37;
-  my $http_urinocase29=$38 if $38;	# 29
-  my $distance21=$39 if defined($39);	# 30
-  my $distance22=$40 if defined($40);	# 31
-  my $http_uri23=$41 if $41;		# 32
-  my $http_urifast41=$42 if $42;
-  my $http_urinocase33=$43 if $43;	# 33
-  my $distance24=$44 if defined($44);	# 34
-  my $distance25=$45 if defined($45);	# 35
-  my $http_urifast44=$46 if $46;
-  my $http_urinocase36=$47 if $47;	# 36
-  my $distance26=$48 if defined($48);	# 37
-  my $distance27=$49 if defined($49);	# 38
-  my $http_uri28=$50 if $50;		# 39
-  my $http_urifast49=$51 if $51;
-  my $http_urinocase40=$52 if $52;	# 40
-  my $distance29=$53 if defined($53);	# 41
-  my $distance30=$54 if defined($54);	# 42
-  my $http_urifast54=$55 if $55;
-  my $http_urinocase43=$56 if $56;	# 43
-  my $distance31=$57 if defined($57);	# 44
-  my $distance32=$58 if defined($58);	# 45
-  my $http_uri33=$59 if $59;		# 46
-  my $http_urifast58=$60 if $60;
-  my $http_urinocase47=$61 if $61;	# 47
-  my $distance34=$62 if defined($62);	# 48
-  my $distance35=$63 if defined($63);	# 49
-  my $http_urifast62=$64 if $64;
-  my $http_urinocase50=$65 if $65;	# 50
-  my $distance36=$66 if defined($66);	# 51
-  my $distance37=$67 if defined($67);	# 52
-  my $http_uri38=$68 if $68;		# 53
-  my $http_urinocase54=$69 if $69;	# 54
-  my $http_urinocase57=$58 if $58;	# 57
-  my $http_uri43=$61 if $61;		# 60
-  my $http_urinocase61=$62 if $62;	# 61
-  my $http_urinocase64=$65 if $65;	# 64
-  my $http_uri48=$68 if $68;		# 67
-  my $http_urinocase68=$69 if $69;	# 68
-  my $http_urinocase71=$72 if $72;	# 71
-  my $http_uri53=$75 if $75;		# 74
-  my $http_urinocase75=$76 if $76;	# 75
-  my $http_urinocase78=$79 if $79;	# 78
-  my $http_uri58=$82 if $82;		# 81
-  my $http_urinocase82=$83 if $83;	# 82
-  my $http_urinocase85=$86 if $86;	# 85
-  my $http_uri63=$89 if $89;		# 88
-  my $http_urinocase89=$90 if $90;	# 89
-  my $http_urinocase92=$93 if $93;	# 92
-  my $http_header68=$96 if $96;		# 95
-  my $http_headernocase96=$97 if $97;	# 96
-  my $http_headernocase99=$100 if $100;	# 99
-  my $http_header121=$122 if $122;
-  my $http_headerfast122=$123 if $123;
-  my $http_headernocase123=$124 if $124;
-  my $distance124=$125 if defined($125);
-  my $distance125=$126 if defined($126);
-  my $http_headerfast126=$127 if $127;
-  my $http_headernocase127=$128 if $128;
-  my $distance128=$129 if defined($129);
-  my $distance129=$130 if defined($130);
-  my $pcre_uri73=$131 if $131;		# 102
-  my $http_header74=$132 if $132;	# 103
-  my $http_headerfast132=$133 if $133;
-  my $http_headernocase104=$134 if $134;# 104
-  my $distance75=$134 if defined($135);	# 105
-  my $distance76=$136 if defined($136);	# 106
-  my $http_headerfast136=$137 if $137;
-  my $http_headernocase107=$138 if $138;# 107
-  my $distance77=$139 if defined($139);	# 108
-  my $distance78=$140 if defined($130);	# 109
-  my $pcre_agent79=$141 if $141;	# 110
+  my $http_urinocase5=$7 if $7;
+     $http_urioffset=$8 if $8;
+     $http_uridepth=$9 if $9;
+  # distance
+  # distance
+  my $http_urifast9=$12 if $12;
+  my $http_urinocase10=$13 if $13;
+     $http_urioffset=$14 if $14;
+     $http_uridepth=$15 if $15;
+  # distance
+  # distance
+  #
+  my $http_uri08=$18 if $18;		# old 14
+  my $http_urifast14=$19 if $19;
+  my $http_urinocase12=$20 if $20;
+  # offset/depth
+  # offset/depth
+  my $distance9=$23 if defined($23);		# 23
+  my $distance10=$24 if defined($24);
+  my $http_urifast18=$25 if $25;
+  my $http_urinocase15=$26 if $26;
+  # offset/depth
+  # offset/depth
+  my $distance11=$29 if defined($29);
+  my $distance12=$30 if defined($30);
+  #
+  my $http_uri13=$31 if $31;		# old 23
+  my $http_urifast23=$32 if $32;
+  my $http_urinocase19=$33 if $33;
+  # offset/depth
+  # offset/depth
+  my $distance14=$36 if defined($36);
+  my $distance15=$37 if defined($37);
+  my $http_urifast27=$38 if $38;
+  my $http_urinocase22=$39 if $39;
+  # offset/depth
+  # offset/depth
+  my $distance16=$42 if defined($42);
+  my $distance17=$43 if defined($43);
+  #
+  my $http_uri18=$44 if $44;		# old 32
+  my $http_urifast32=$45 if $45;
+  my $http_urinocase26=$46 if $46;
+  # offset/depth
+  # offset/depth
+  my $distance19=$49 if defined($49);
+  my $distance20=$50 if defined($50);
+  my $http_urifast36=$51 if $51;
+  my $http_urinocase29=$52 if $52;
+  # offset/depth
+  # offset/depth
+  my $distance21=$55 if defined($55);
+  my $distance22=$56 if defined($56);
+  #
+  my $http_uri23=$57 if $57;		# old 41
+  my $http_urifast41=$58 if $58;
+  my $http_urinocase33=$59 if $59;
+  # offset/depth
+  # offset/depth
+  my $distance24=$62 if defined($62);
+  my $distance25=$63 if defined($63);
+  my $http_urifast44=$64 if $64;
+  my $http_urinocase36=$65 if $65;
+  # offset/depth
+  # offset/depth
+  my $distance26=$68 if defined($68);
+  my $distance27=$69 if defined($69);
+  #
+  my $http_uri28=$70 if $70;		# old 50
+  my $http_urifast49=$71 if $71;
+  my $http_urinocase40=$72 if $72;
+  # offset/depth
+  # offset/depth
+  my $distance29=$75 if defined($75);
+  my $distance30=$76 if defined($76);
+  my $http_urifast54=$77 if $77;
+  my $http_urinocase43=$78 if $78;
+  # offset/depth
+  # offset/depth
+  my $distance31=$81 if defined($81);
+  my $distance32=$82 if defined($82);
+  #
+  my $http_uri33=$83 if $83;		# old 59
+  my $http_urifast58=$84 if $84;
+  my $http_urinocase47=$85 if $85;
+  # offset/depth
+  # offset/depth
+  my $distance34=$88 if defined($88);
+  my $distance35=$89 if defined($89);
+  my $http_urifast62=$90 if $90;
+  my $http_urinocase50=$91 if $91;
+  # offset/depth
+  # offset/depth
+  my $distance36=$94 if defined($94);
+  my $distance37=$95 if defined($95);
+  #
+  my $http_uri38=$96 if $96;		# old 68
+  # fastpattern
+  my $http_urinocase54=$98 if $98;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  # fastpattern
+  my $http_urinocase57=$104 if $104;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_uri43=$109 if $109;		# old 61
+  # fastpattern
+  my $http_urinocase61=$111 if $111;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  # fastpattern
+  my $http_urinocase64=$117 if $117;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_uri48=$122 if $122;		# old 68
+  # fastpattern
+  my $http_urinocase68=$124 if $124;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  # fastpattern
+  my $http_urinocase71=$130 if $130;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_uri53=$135 if $135;		# old 75
+  # fastpattern
+  my $http_urinocase75=$137 if $137;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  # fastpattern
+  my $http_urinocase78=$143 if $143;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_uri58=$148 if $148;		# old 82
+  # fastpattern
+  my $http_urinocase82=$150 if $150;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  # fastpattern
+  my $http_urinocase85=$156 if $156;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_uri63=$161 if $161;		# old 89
+  # fastpattern
+  my $http_urinocase89=$163 if $163;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  # fastpattern
+  my $http_urinocase92=$169 if $169;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_header68=$174 if $174;	# old 96
+  # fastpattern
+  my $http_headernocase96=$176 if $176;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  # fastpattern
+  my $http_headernocase99=$182 if $182;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $pcre_uri73=$187 if $187;		# old 131
+  #
+  my $http_header121=$188 if $188;      # old 132
+  my $http_headerfast122=$189 if $189;
+  my $http_headernocase123=$190 if $190;
+  # offset/depth
+  # offset/depth
+  my $distance124=$193 if defined($193);
+  my $distance125=$194 if defined($194);
+  my $http_headerfast126=$195 if $195;
+  my $http_headernocase127=$196 if $196;
+  # offset/depth
+  # offset/depth
+  my $distance128=$199 if defined($199);
+  my $distance129=$200 if defined($200);
+  #
+  my $pcre_agent79=$201 if $201;	# old 141
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -373,239 +503,227 @@ foreach $_ ( @fileemergingthreats )
   if( $http_uri03_length >= $http_uri08_length && $http_uri03_length >= $http_uri13_length && $http_uri03_length >= $http_uri18_length && $http_uri03_length >= $http_uri23_length && $http_uri03_length >= $http_uri28_length && $http_uri03_length >= $http_uri33_length && $http_uri03_length >= $http_uri38_length && $http_uri03_length >= $http_uri43_length && $http_uri03_length >= $http_uri48_length && $http_uri03_length >= $http_uri53_length && $http_uri03_length >= $http_uri58_length && $http_uri03_length >= $http_uri63_length)
   { $httpuricourt=$http_uri03; }
   elsif( $http_uri08_length >= $http_uri03_length && $http_uri08_length >= $http_uri13_length && $http_uri08_length >= $http_uri18_length && $http_uri08_length >= $http_uri23_length && $http_uri08_length >= $http_uri28_length && $http_uri08_length >= $http_uri33_length && $http_uri08_length >= $http_uri38_length && $http_uri08_length >= $http_uri43_length && $http_uri08_length >= $http_uri48_length && $http_uri08_length >= $http_uri53_length && $http_uri08_length >= $http_uri58_length && $http_uri08_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri08; }
+  { $httpuricourt=$http_uri08; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri13_length >= $http_uri03_length && $http_uri13_length >= $http_uri08_length && $http_uri13_length >= $http_uri18_length && $http_uri13_length >= $http_uri23_length && $http_uri13_length >= $http_uri28_length && $http_uri13_length >= $http_uri33_length && $http_uri13_length >= $http_uri38_length && $http_uri13_length >= $http_uri43_length && $http_uri13_length >= $http_uri48_length && $http_uri13_length >= $http_uri53_length && $http_uri13_length >= $http_uri58_length && $http_uri13_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri13; }
+  { $httpuricourt=$http_uri13; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri18_length >= $http_uri03_length && $http_uri18_length >= $http_uri08_length && $http_uri18_length >= $http_uri13_length && $http_uri18_length >= $http_uri23_length && $http_uri18_length >= $http_uri28_length && $http_uri18_length >= $http_uri33_length && $http_uri18_length >= $http_uri38_length && $http_uri18_length >= $http_uri43_length && $http_uri18_length >= $http_uri48_length && $http_uri18_length >= $http_uri53_length && $http_uri18_length >= $http_uri58_length && $http_uri18_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri18; }
+  { $httpuricourt=$http_uri18; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri23_length >= $http_uri03_length && $http_uri23_length >= $http_uri08_length && $http_uri23_length >= $http_uri13_length && $http_uri23_length >= $http_uri18_length && $http_uri23_length >= $http_uri28_length && $http_uri23_length >= $http_uri33_length && $http_uri23_length >= $http_uri38_length && $http_uri23_length >= $http_uri43_length && $http_uri23_length >= $http_uri48_length && $http_uri23_length >= $http_uri53_length && $http_uri23_length >= $http_uri58_length && $http_uri23_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri23; }
+  { $httpuricourt=$http_uri23; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri28_length >= $http_uri03_length && $http_uri28_length >= $http_uri08_length && $http_uri28_length >= $http_uri13_length && $http_uri28_length >= $http_uri18_length && $http_uri28_length >= $http_uri23_length && $http_uri28_length >= $http_uri33_length && $http_uri28_length >= $http_uri38_length && $http_uri28_length >= $http_uri43_length && $http_uri28_length >= $http_uri48_length && $http_uri28_length >= $http_uri53_length && $http_uri28_length >= $http_uri58_length && $http_uri28_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri28; }
+  { $httpuricourt=$http_uri28; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri33_length >= $http_uri03_length && $http_uri33_length >= $http_uri08_length && $http_uri33_length >= $http_uri13_length && $http_uri33_length >= $http_uri18_length && $http_uri33_length >= $http_uri23_length && $http_uri33_length >= $http_uri28_length && $http_uri33_length >= $http_uri38_length && $http_uri33_length >= $http_uri43_length && $http_uri33_length >= $http_uri48_length && $http_uri33_length >= $http_uri53_length && $http_uri33_length >= $http_uri58_length && $http_uri33_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri33; }
+  { $httpuricourt=$http_uri33; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri38_length >= $http_uri03_length && $http_uri38_length >= $http_uri08_length && $http_uri38_length >= $http_uri13_length && $http_uri38_length >= $http_uri18_length && $http_uri38_length >= $http_uri23_length && $http_uri38_length >= $http_uri28_length && $http_uri38_length >= $http_uri33_length && $http_uri38_length >= $http_uri43_length && $http_uri38_length >= $http_uri48_length && $http_uri38_length >= $http_uri53_length && $http_uri38_length >= $http_uri58_length && $http_uri38_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri38; }
+  { $httpuricourt=$http_uri38; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri43_length >= $http_uri03_length && $http_uri43_length >= $http_uri08_length && $http_uri43_length >= $http_uri13_length && $http_uri43_length >= $http_uri18_length && $http_uri43_length >= $http_uri23_length && $http_uri43_length >= $http_uri28_length && $http_uri43_length >= $http_uri33_length && $http_uri43_length >= $http_uri38_length && $http_uri43_length >= $http_uri48_length && $http_uri43_length >= $http_uri53_length && $http_uri43_length >= $http_uri58_length && $http_uri43_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri43; }
+  { $httpuricourt=$http_uri43; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri48_length >= $http_uri03_length && $http_uri48_length >= $http_uri08_length && $http_uri48_length >= $http_uri13_length && $http_uri48_length >= $http_uri18_length && $http_uri48_length >= $http_uri23_length && $http_uri48_length >= $http_uri28_length && $http_uri48_length >= $http_uri33_length && $http_uri48_length >= $http_uri38_length && $http_uri48_length >= $http_uri43_length && $http_uri48_length >= $http_uri53_length && $http_uri48_length >= $http_uri58_length && $http_uri48_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri48; }
+  { $httpuricourt=$http_uri48; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri53_length >= $http_uri03_length && $http_uri53_length >= $http_uri08_length && $http_uri53_length >= $http_uri13_length && $http_uri53_length >= $http_uri18_length && $http_uri53_length >= $http_uri23_length && $http_uri53_length >= $http_uri28_length && $http_uri53_length >= $http_uri33_length && $http_uri53_length >= $http_uri38_length && $http_uri53_length >= $http_uri43_length && $http_uri53_length >= $http_uri48_length && $http_uri53_length >= $http_uri58_length && $http_uri53_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri53; }
+  { $httpuricourt=$http_uri53; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri58_length >= $http_uri03_length && $http_uri58_length >= $http_uri08_length && $http_uri58_length >= $http_uri13_length && $http_uri58_length >= $http_uri18_length && $http_uri58_length >= $http_uri23_length && $http_uri58_length >= $http_uri28_length && $http_uri58_length >= $http_uri33_length && $http_uri58_length >= $http_uri38_length && $http_uri58_length >= $http_uri43_length && $http_uri58_length >= $http_uri48_length && $http_uri58_length >= $http_uri53_length && $http_uri58_length >= $http_uri63_length)
-  { $httpuricourt=$http_uri58; }
+  { $httpuricourt=$http_uri58; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri63_length >= $http_uri03_length && $http_uri63_length >= $http_uri08_length && $http_uri63_length >= $http_uri13_length && $http_uri63_length >= $http_uri18_length && $http_uri63_length >= $http_uri23_length && $http_uri63_length >= $http_uri28_length && $http_uri63_length >= $http_uri33_length && $http_uri63_length >= $http_uri38_length && $http_uri63_length >= $http_uri43_length && $http_uri63_length >= $http_uri48_length && $http_uri63_length >= $http_uri53_length && $http_uri63_length >= $http_uri58_length)
-  { $httpuricourt=$http_uri63; }
+  { $httpuricourt=$http_uri63; $http_urioffset=0; $http_uridepth=0; }
 
-  $http_uri03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri03; # (
-  $http_uri03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri03; # )
-  $http_uri03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri03; # *
-  $http_uri03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri03; # +
-  $http_uri03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri03; # -
-  $http_uri03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri03; # .
-  $http_uri03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri03; # /
-  $http_uri03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri03; # ?
-  $http_uri03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri03; # [
-  $http_uri03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri03; # ]
-  $http_uri03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri03; # ^
-  $http_uri03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri03; # {
-  $http_uri03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri03; # }
-  $http_uri08 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri08; # (
-  $http_uri08 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri08; # )
-  $http_uri08 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri08; # *
-  $http_uri08 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri08; # +
-  $http_uri08 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri08; # -
-  $http_uri08 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri08; # .
-  $http_uri08 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri08; # /
-  $http_uri08 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri08; # ?
-  $http_uri08 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri08; # [
-  $http_uri08 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri08; # ]
-  $http_uri08 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri08; # ^
-  $http_uri08 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri08; # {
-  $http_uri08 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri08; # }
-  $http_uri13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri13; # (
-  $http_uri13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri13; # )
-  $http_uri13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri13; # *
-  $http_uri13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri13; # +
-  $http_uri13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri13; # -
-  $http_uri13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri13; # .
-  $http_uri13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri13; # /
-  $http_uri13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri13; # ?
-  $http_uri13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri13; # [
-  $http_uri13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri13; # ]
-  $http_uri13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri13; # ^
-  $http_uri13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri13; # {
-  $http_uri13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri13; # }
-  $http_uri18 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri18; # (
-  $http_uri18 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri18; # )
-  $http_uri18 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri18; # *
-  $http_uri18 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri18; # +
-  $http_uri18 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri18; # -
-  $http_uri18 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri18; # .
-  $http_uri18 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri18; # /
-  $http_uri18 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri18; # ?
-  $http_uri18 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri18; # [
-  $http_uri18 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri18; # ]
-  $http_uri18 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri18; # ^
-  $http_uri18 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri18; # {
-  $http_uri18 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri18; # }
-  $http_uri23 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri23; # (
-  $http_uri23 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri23; # )
-  $http_uri23 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri23; # *
-  $http_uri23 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri23; # +
-  $http_uri23 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri23; # -
-  $http_uri23 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri23; # .
-  $http_uri23 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri23; # /
-  $http_uri23 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri23; # ?
-  $http_uri23 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri23; # [
-  $http_uri23 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri23; # ]
-  $http_uri23 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri23; # ^
-  $http_uri23 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri23; # {
-  $http_uri23 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri23; # }
-  $http_uri28 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri28; # (
-  $http_uri28 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri28; # )
-  $http_uri28 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri28; # *
-  $http_uri28 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri28; # +
-  $http_uri28 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri28; # -
-  $http_uri28 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri28; # .
-  $http_uri28 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri28; # /
-  $http_uri28 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri28; # ?
-  $http_uri28 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri28; # [
-  $http_uri28 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri28; # ]
-  $http_uri28 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri28; # ^
-  $http_uri28 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri28; # {
-  $http_uri28 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri28; # }
-  $http_uri33 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri33; # (
-  $http_uri33 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri33; # )
-  $http_uri33 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri33; # *
-  $http_uri33 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri33; # +
-  $http_uri33 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri33; # -
-  $http_uri33 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri33; # .
-  $http_uri33 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri33; # /
-  $http_uri33 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri33; # ?
-  $http_uri33 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri33; # [
-  $http_uri33 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri33; # ]
-  $http_uri33 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri33; # ^
-  $http_uri33 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri33; # {
-  $http_uri33 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri33; # }
-  $http_uri38 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri38; # (
-  $http_uri38 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri38; # )
-  $http_uri38 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri38; # *
-  $http_uri38 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri38; # +
-  $http_uri38 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri38; # -
-  $http_uri38 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri38; # .
-  $http_uri38 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri38; # /
-  $http_uri38 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri38; # ?
-  $http_uri38 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri38; # [
-  $http_uri38 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri38; # ]
-  $http_uri38 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri38; # ^
-  $http_uri38 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri38; # {
-  $http_uri38 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri38; # }
-  $http_uri43 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri43; # (
-  $http_uri43 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri43; # )
-  $http_uri43 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri43; # *
-  $http_uri43 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri43; # +
-  $http_uri43 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri43; # -
-  $http_uri43 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri43; # .
-  $http_uri43 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri43; # /
-  $http_uri43 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri43; # ?
-  $http_uri43 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri43; # [
-  $http_uri43 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri43; # ]
-  $http_uri43 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri43; # ^
-  $http_uri43 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri43; # {
-  $http_uri43 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri43; # }
-  $http_uri48 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri48; # (
-  $http_uri48 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri48; # )
-  $http_uri48 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri48; # *
-  $http_uri48 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri48; # +
-  $http_uri48 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri48; # -
-  $http_uri48 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri48; # .
-  $http_uri48 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri48; # /
-  $http_uri48 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri48; # ?
-  $http_uri48 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri48; # [
-  $http_uri48 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri48; # ]
-  $http_uri48 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri48; # ^
-  $http_uri48 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri48; # {
-  $http_uri48 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri48; # }
-  $http_uri53 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri53; # (
-  $http_uri53 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri53; # )
-  $http_uri53 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri53; # *
-  $http_uri53 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri53; # +
-  $http_uri53 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri53; # -
-  $http_uri53 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri53; # .
-  $http_uri53 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri53; # /
-  $http_uri53 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri53; # ?
-  $http_uri53 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri53; # [
-  $http_uri53 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri53; # ]
-  $http_uri53 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri53; # ^
-  $http_uri53 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri53; # {
-  $http_uri53 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri53; # }
-  $http_uri58 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri58; # (
-  $http_uri58 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri58; # )
-  $http_uri58 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri58; # *
-  $http_uri58 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri58; # +
-  $http_uri58 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri58; # -
-  $http_uri58 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri58; # .
-  $http_uri58 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri58; # /
-  $http_uri58 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri58; # ?
-  $http_uri58 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri58; # [
-  $http_uri58 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri58; # ]
-  $http_uri58 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri58; # ^
-  $http_uri58 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri58; # {
-  $http_uri58 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri58; # }
-  $http_uri63 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri63; # (
-  $http_uri63 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri63; # )
-  $http_uri63 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri63; # *
-  $http_uri63 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri63; # +
-  $http_uri63 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri63; # -
-  $http_uri63 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri63; # .
-  $http_uri63 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri63; # /
-  $http_uri63 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri63; # ?
-  $http_uri63 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri63; # [
-  $http_uri63 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri63; # ]
-  $http_uri63 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri63; # ^
-  $http_uri63 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri63; # {
-  $http_uri63 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri63; # }
-  $http_header68 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header68; # (
-  $http_header68 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header68; # )
-  $http_header68 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header68; # *
-  $http_header68 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header68; # +
-  $http_header68 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header68; # -
-  $http_header68 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header68; # .
-  $http_header68 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header68; # /
-  $http_header68 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header68; # ?
-  $http_header68 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header68; # [
-  $http_header68 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header68; # ]
-  #$http_header68 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header68; # ^
-  $http_header68 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header68; # {
-  $http_header68 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header68; # }
-  $http_header121 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header121; # (
-  $http_header121 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header121; # )
-  $http_header121 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header121; # *
-  $http_header121 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header121; # +
-  $http_header121 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header121; # -
-  $http_header121 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header121; # .
-  $http_header121 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header121; # /
-  $http_header121 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header121; # ?
-  $http_header121 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header121; # [
-  $http_header121 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header121; # ]
-  #$http_header121 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header121; # ^
-  $http_header121 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header121; # {
-  $http_header121 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header121; # }
+  # need escape special char before compare with pcre
+  $http_uri03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri03 && $pcre_uri73; # (
+  $http_uri03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri03 && $pcre_uri73; # )
+  $http_uri03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri03 && $pcre_uri73; # *
+  $http_uri03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri03 && $pcre_uri73; # +
+  $http_uri03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri03 && $pcre_uri73; # -
+  $http_uri03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri03 && $pcre_uri73; # .
+  $http_uri03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri03 && $pcre_uri73; # /
+  $http_uri03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri03 && $pcre_uri73; # ?
+  $http_uri03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri03 && $pcre_uri73; # [
+  $http_uri03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri03 && $pcre_uri73; # ]
+  $http_uri03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri03 && $pcre_uri73; # ^
+  $http_uri03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri03 && $pcre_uri73; # {
+  $http_uri03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri03 && $pcre_uri73; # }
+  $http_uri08 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri08 && $pcre_uri73; # (
+  $http_uri08 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri08 && $pcre_uri73; # )
+  $http_uri08 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri08 && $pcre_uri73; # *
+  $http_uri08 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri08 && $pcre_uri73; # +
+  $http_uri08 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri08 && $pcre_uri73; # -
+  $http_uri08 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri08 && $pcre_uri73; # .
+  $http_uri08 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri08 && $pcre_uri73; # /
+  $http_uri08 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri08 && $pcre_uri73; # ?
+  $http_uri08 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri08 && $pcre_uri73; # [
+  $http_uri08 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri08 && $pcre_uri73; # ]
+  $http_uri08 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri08 && $pcre_uri73; # ^
+  $http_uri08 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri08 && $pcre_uri73; # {
+  $http_uri08 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri08 && $pcre_uri73; # }
+  $http_uri13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri13 && $pcre_uri73; # (
+  $http_uri13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri13 && $pcre_uri73; # )
+  $http_uri13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri13 && $pcre_uri73; # *
+  $http_uri13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri13 && $pcre_uri73; # +
+  $http_uri13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri13 && $pcre_uri73; # -
+  $http_uri13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri13 && $pcre_uri73; # .
+  $http_uri13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri13 && $pcre_uri73; # /
+  $http_uri13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri13 && $pcre_uri73; # ?
+  $http_uri13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri13 && $pcre_uri73; # [
+  $http_uri13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri13 && $pcre_uri73; # ]
+  $http_uri13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri13 && $pcre_uri73; # ^
+  $http_uri13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri13 && $pcre_uri73; # {
+  $http_uri13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri13 && $pcre_uri73; # }
+  $http_uri18 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri18 && $pcre_uri73; # (
+  $http_uri18 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri18 && $pcre_uri73; # )
+  $http_uri18 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri18 && $pcre_uri73; # *
+  $http_uri18 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri18 && $pcre_uri73; # +
+  $http_uri18 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri18 && $pcre_uri73; # -
+  $http_uri18 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri18 && $pcre_uri73; # .
+  $http_uri18 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri18 && $pcre_uri73; # /
+  $http_uri18 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri18 && $pcre_uri73; # ?
+  $http_uri18 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri18 && $pcre_uri73; # [
+  $http_uri18 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri18 && $pcre_uri73; # ]
+  $http_uri18 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri18 && $pcre_uri73; # ^
+  $http_uri18 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri18 && $pcre_uri73; # {
+  $http_uri18 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri18 && $pcre_uri73; # }
+  $http_uri23 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri23 && $pcre_uri73; # (
+  $http_uri23 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri23 && $pcre_uri73; # )
+  $http_uri23 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri23 && $pcre_uri73; # *
+  $http_uri23 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri23 && $pcre_uri73; # +
+  $http_uri23 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri23 && $pcre_uri73; # -
+  $http_uri23 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri23 && $pcre_uri73; # .
+  $http_uri23 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri23 && $pcre_uri73; # /
+  $http_uri23 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri23 && $pcre_uri73; # ?
+  $http_uri23 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri23 && $pcre_uri73; # [
+  $http_uri23 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri23 && $pcre_uri73; # ]
+  $http_uri23 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri23 && $pcre_uri73; # ^
+  $http_uri23 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri23 && $pcre_uri73; # {
+  $http_uri23 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri23 && $pcre_uri73; # }
+  $http_uri28 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri28 && $pcre_uri73; # (
+  $http_uri28 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri28 && $pcre_uri73; # )
+  $http_uri28 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri28 && $pcre_uri73; # *
+  $http_uri28 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri28 && $pcre_uri73; # +
+  $http_uri28 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri28 && $pcre_uri73; # -
+  $http_uri28 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri28 && $pcre_uri73; # .
+  $http_uri28 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri28 && $pcre_uri73; # /
+  $http_uri28 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri28 && $pcre_uri73; # ?
+  $http_uri28 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri28 && $pcre_uri73; # [
+  $http_uri28 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri28 && $pcre_uri73; # ]
+  $http_uri28 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri28 && $pcre_uri73; # ^
+  $http_uri28 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri28 && $pcre_uri73; # {
+  $http_uri28 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri28 && $pcre_uri73; # }
+  $http_uri33 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri33 && $pcre_uri73; # (
+  $http_uri33 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri33 && $pcre_uri73; # )
+  $http_uri33 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri33 && $pcre_uri73; # *
+  $http_uri33 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri33 && $pcre_uri73; # +
+  $http_uri33 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri33 && $pcre_uri73; # -
+  $http_uri33 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri33 && $pcre_uri73; # .
+  $http_uri33 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri33 && $pcre_uri73; # /
+  $http_uri33 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri33 && $pcre_uri73; # ?
+  $http_uri33 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri33 && $pcre_uri73; # [
+  $http_uri33 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri33 && $pcre_uri73; # ]
+  $http_uri33 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri33 && $pcre_uri73; # ^
+  $http_uri33 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri33 && $pcre_uri73; # {
+  $http_uri33 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri33 && $pcre_uri73; # }
+  $http_uri38 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri38 && $pcre_uri73; # (
+  $http_uri38 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri38 && $pcre_uri73; # )
+  $http_uri38 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri38 && $pcre_uri73; # *
+  $http_uri38 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri38 && $pcre_uri73; # +
+  $http_uri38 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri38 && $pcre_uri73; # -
+  $http_uri38 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri38 && $pcre_uri73; # .
+  $http_uri38 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri38 && $pcre_uri73; # /
+  $http_uri38 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri38 && $pcre_uri73; # ?
+  $http_uri38 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri38 && $pcre_uri73; # [
+  $http_uri38 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri38 && $pcre_uri73; # ]
+  $http_uri38 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri38 && $pcre_uri73; # ^
+  $http_uri38 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri38 && $pcre_uri73; # {
+  $http_uri38 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri38 && $pcre_uri73; # }
+  $http_uri43 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri43 && $pcre_uri73; # (
+  $http_uri43 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri43 && $pcre_uri73; # )
+  $http_uri43 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri43 && $pcre_uri73; # *
+  $http_uri43 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri43 && $pcre_uri73; # +
+  $http_uri43 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri43 && $pcre_uri73; # -
+  $http_uri43 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri43 && $pcre_uri73; # .
+  $http_uri43 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri43 && $pcre_uri73; # /
+  $http_uri43 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri43 && $pcre_uri73; # ?
+  $http_uri43 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri43 && $pcre_uri73; # [
+  $http_uri43 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri43 && $pcre_uri73; # ]
+  $http_uri43 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri43 && $pcre_uri73; # ^
+  $http_uri43 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri43 && $pcre_uri73; # {
+  $http_uri43 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri43 && $pcre_uri73; # }
+  $http_uri48 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri48 && $pcre_uri73; # (
+  $http_uri48 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri48 && $pcre_uri73; # )
+  $http_uri48 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri48 && $pcre_uri73; # *
+  $http_uri48 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri48 && $pcre_uri73; # +
+  $http_uri48 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri48 && $pcre_uri73; # -
+  $http_uri48 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri48 && $pcre_uri73; # .
+  $http_uri48 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri48 && $pcre_uri73; # /
+  $http_uri48 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri48 && $pcre_uri73; # ?
+  $http_uri48 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri48 && $pcre_uri73; # [
+  $http_uri48 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri48 && $pcre_uri73; # ]
+  $http_uri48 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri48 && $pcre_uri73; # ^
+  $http_uri48 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri48 && $pcre_uri73; # {
+  $http_uri48 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri48 && $pcre_uri73; # }
+  $http_uri53 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri53 && $pcre_uri73; # (
+  $http_uri53 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri53 && $pcre_uri73; # )
+  $http_uri53 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri53 && $pcre_uri73; # *
+  $http_uri53 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri53 && $pcre_uri73; # +
+  $http_uri53 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri53 && $pcre_uri73; # -
+  $http_uri53 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri53 && $pcre_uri73; # .
+  $http_uri53 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri53 && $pcre_uri73; # /
+  $http_uri53 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri53 && $pcre_uri73; # ?
+  $http_uri53 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri53 && $pcre_uri73; # [
+  $http_uri53 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri53 && $pcre_uri73; # ]
+  $http_uri53 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri53 && $pcre_uri73; # ^
+  $http_uri53 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri53 && $pcre_uri73; # {
+  $http_uri53 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri53 && $pcre_uri73; # }
+  $http_uri58 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri58 && $pcre_uri73; # (
+  $http_uri58 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri58 && $pcre_uri73; # )
+  $http_uri58 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri58 && $pcre_uri73; # *
+  $http_uri58 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri58 && $pcre_uri73; # +
+  $http_uri58 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri58 && $pcre_uri73; # -
+  $http_uri58 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri58 && $pcre_uri73; # .
+  $http_uri58 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri58 && $pcre_uri73; # /
+  $http_uri58 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri58 && $pcre_uri73; # ?
+  $http_uri58 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri58 && $pcre_uri73; # [
+  $http_uri58 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri58 && $pcre_uri73; # ]
+  $http_uri58 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri58 && $pcre_uri73; # ^
+  $http_uri58 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri58 && $pcre_uri73; # {
+  $http_uri58 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri58 && $pcre_uri73; # }
+  $http_uri63 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri63 && $pcre_uri73; # (
+  $http_uri63 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri63 && $pcre_uri73; # )
+  $http_uri63 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri63 && $pcre_uri73; # *
+  $http_uri63 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri63 && $pcre_uri73; # +
+  $http_uri63 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri63 && $pcre_uri73; # -
+  $http_uri63 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri63 && $pcre_uri73; # .
+  $http_uri63 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri63 && $pcre_uri73; # /
+  $http_uri63 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri63 && $pcre_uri73; # ?
+  $http_uri63 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri63 && $pcre_uri73; # [
+  $http_uri63 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri63 && $pcre_uri73; # ]
+  $http_uri63 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri63 && $pcre_uri73; # ^
+  $http_uri63 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri63 && $pcre_uri73; # {
+  $http_uri63 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri63 && $pcre_uri73; # }
+  $http_header68 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header68 && $pcre_agent79; # (
+  $http_header68 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header68 && $pcre_agent79; # )
+  $http_header68 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header68 && $pcre_agent79; # *
+  $http_header68 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header68 && $pcre_agent79; # +
+  $http_header68 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header68 && $pcre_agent79; # -
+  $http_header68 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header68 && $pcre_agent79; # .
+  $http_header68 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header68 && $pcre_agent79; # /
+  $http_header68 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header68 && $pcre_agent79; # ?
+  $http_header68 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header68 && $pcre_agent79; # [
+  $http_header68 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header68 && $pcre_agent79; # ]
+  #$http_header68 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header68 && $pcre_agent79; # ^
+  $http_header68 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header68 && $pcre_agent79; # {
+  $http_header68 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header68 && $pcre_agent79; # }
+  $http_header121 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header121 && $pcre_agent79; # (
+  $http_header121 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header121 && $pcre_agent79; # )
+  $http_header121 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header121 && $pcre_agent79; # *
+  $http_header121 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header121 && $pcre_agent79; # +
+  $http_header121 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header121 && $pcre_agent79; # -
+  $http_header121 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header121 && $pcre_agent79; # .
+  $http_header121 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header121 && $pcre_agent79; # /
+  $http_header121 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header121 && $pcre_agent79; # ?
+  $http_header121 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header121 && $pcre_agent79; # [
+  $http_header121 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header121 && $pcre_agent79; # ]
+  #$http_header121 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header121 && $pcre_agent79; # ^
+  $http_header121 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header121 && $pcre_agent79; # {
+  $http_header121 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header121 && $pcre_agent79; # }
   #$pcre_uri73 =~ s/(?<!\x5C)\x24//g         if $pcre_uri73; # $
-  $http_header74 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header74; # (
-  $http_header74 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header74; # )
-  $http_header74 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header74; # *
-  $http_header74 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header74; # +
-  $http_header74 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header74; # -
-  $http_header74 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header74; # .
-  $http_header74 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header74; # /
-  $http_header74 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header74; # ?
-  $http_header74 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header74; # [
-  $http_header74 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header74; # ]
-  $http_header74 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header74; # {
-  $http_header74 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header74; # }
-  #$http_header74 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header74; # ^
   #$pcre_agent79 =~ s/(?<!\x5C)\x24//g         if $pcre_agent79; # $
 
 #perl -e '$abc1="1|20 21|2|22 24|3";while($abc1=~/(?<!\x5C)\|(.*?)\|/g){$toto1=$1;print "abc1:$abc1\ntoto1:$toto1\n";$toto1=~s/\s*([0-9A-Fa-f]{2})/\\x$1/g; print "$toto1\n"; $abc1=~s/(?<!\x5C)\|.*?\|/$toto1/}; print "final:$abc1\n"'
@@ -685,11 +803,11 @@ foreach $_ ( @fileemergingthreats )
    $http_header121=~s/(?<!\x5C)\|.*?\|/$toto1/;
   }
   # ne pas faire d'echappement sur la pcre ($pcre_uri73)
-  while($http_header74 && $http_header74=~/(?<!\x5C)\|(.*?)\|/g) {
-   my $toto1=$1;
-   $toto1=~s/\s*([0-9A-Fa-f]{2})/\\x$1/g;
-   $http_header74=~s/(?<!\x5C)\|.*?\|/$toto1/;
-  }
+  #while($http_header74 && $http_header74=~/(?<!\x5C)\|(.*?)\|/g) {
+  # my $toto1=$1;
+  # $toto1=~s/\s*([0-9A-Fa-f]{2})/\\x$1/g;
+  # $http_header74=~s/(?<!\x5C)\|.*?\|/$toto1/;
+  #}
   # ne pas faire d'echappement sur la pcre ($pcre_agent79)
   my $abc1=0;
   my $httppcreagent=0;
@@ -858,6 +976,7 @@ foreach $_ ( @fileemergingthreats )
   }
 
      if( $http_header68 && $http_header68 =~ s/\QUser\-Agent\x3A\x20\E(?!$)/^/i ) { }
+  elsif( $http_header68 && $http_header68 =~ s/\QUser-Agent\x3A\x20\E(?!$)/^/i ) { }
   elsif( $http_header68 && $http_header68 =~ s/\QUser\-Agent\x3A\x20\E$/^/i ) { undef($http_header68) }
   elsif( $http_header68 && $http_header68 =~ s/\QUser\-Agent\x3A \E(?!$)/^/i ) { }
   elsif( $http_header68 && $http_header68 =~  /\QUser\-Agent\x3A \E$/i ) { undef($http_header68) }
@@ -877,6 +996,7 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header68 && $http_header68 =~  /\QUser-Agent\:\E$/i ) { undef($http_header68) }
                            $http_header68 =~ s/\Q\x0D\x0A\E/\$/i if $http_header68;
      if( $http_header121 && $http_header121 =~ s/\QUser\-Agent\x3A\x20\E(?!$)/^/i ) { }
+  elsif( $http_header121 && $http_header121 =~ s/\QUser-Agent\x3A\x20\E(?!$)/^/i ) { }
   elsif( $http_header121 && $http_header121 =~ s/\QUser\-Agent\x3A\x20\E$/^/i ) { undef($http_header121) }
   elsif( $http_header121 && $http_header121 =~ s/\QUser\-Agent\x3A \E(?!$)/^/i ) { }
   elsif( $http_header121 && $http_header121 =~  /\QUser\-Agent\x3A \E$/i ) { undef($http_header121) }
@@ -895,26 +1015,8 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header121 && $http_header121 =~ s/\QUser-Agent\:\E(?!$)/^/i ) { }
   elsif( $http_header121 && $http_header121 =~  /\QUser-Agent\:\E$/i ) { undef($http_header121) }
                            $http_header121 =~ s/\Q\x0D\x0A\E/\$/i if $http_header121;
-     if( $http_header74 && $http_header74 =~ s/\QUser\-Agent\x3A\x20\E(?!$)/^/i ) { }
-  elsif( $http_header74 && $http_header74 =~ s/\QUser\-Agent\x3A\x20\E$/^/i ) { undef($http_header74) }
-  elsif( $http_header74 && $http_header74 =~ s/\QUser\-Agent\x3A \E(?!$)/^/i ) { }
-  elsif( $http_header74 && $http_header74 =~  /\QUser\-Agent\x3A \E$/i ) { undef($http_header74) }
-  elsif( $http_header74 && $http_header74 =~ s/\QUser-Agent\x3A \E(?!$)/^/i ) { }
-  elsif( $http_header74 && $http_header74 =~  /\QUser-Agent\x3A \E$/i ) { undef($http_header74) }
-  elsif( $http_header74 && $http_header74 =~ s/\QUser\-Agent\: \E(?!$)/^/i ) { }
-  elsif( $http_header74 && $http_header74 =~  /\QUser\-Agent\: \E$/i ) { undef($http_header74) }
-  elsif( $http_header74 && $http_header74 =~ s/\QUser-Agent\: \E(?!$)/^/i ) { }
-  elsif( $http_header74 && $http_header74 =~  /\QUser-Agent\: \E$/i ) { undef($http_header74) }
-  elsif( $http_header74 && $http_header74 =~ s/\QUser\-Agent\x3A\E(?!$)/^/i ) { }
-  elsif( $http_header74 && $http_header74 =~  /\QUser\-Agent\x3A\E$/i ) { undef($http_header74) }
-  elsif( $http_header74 && $http_header74 =~ s/\QUser-Agent\x3A\E(?!$)/^/i ) { }
-  elsif( $http_header74 && $http_header74 =~  /\QUser-Agent\x3A\E$/i ) { undef($http_header74) }
-  elsif( $http_header74 && $http_header74 =~ s/\QUser\-Agent\:\E(?!$)/^/i ) { }
-  elsif( $http_header74 && $http_header74 =~  /\QUser\-Agent\:\E$/i ) { undef($http_header74) }
-  elsif( $http_header74 && $http_header74 =~ s/\QUser-Agent\:\E(?!$)/^/i ) { }
-  elsif( $http_header74 && $http_header74 =~  /\QUser-Agent\:\E$/i ) { undef($http_header74) }
-                           $http_header74 =~ s/\Q\x0D\x0A\E/\$/i if $http_header74;
   $pcre_agent79 =~ s/\Q^User\-Agent\x3A\x20\E/^/i if $pcre_agent79;
+  $pcre_agent79 =~ s/\Q^User-Agent\x3A\x20\E/^/i if $pcre_agent79;
   $pcre_agent79 =~ s/\Q^User\-Agent\x3A \E/^/i if $pcre_agent79;
   $pcre_agent79 =~ s/\QUser\-Agent\x3A\x20\E/^/i if $pcre_agent79;
   $pcre_agent79 =~ s/\QUser\-Agent\x3A \E/^/i if $pcre_agent79;
@@ -953,12 +1055,6 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header121 && $http_header121 =~ s/\QReferer\x3A \E/^/i ) { $pcrereferer = $http_header121; undef $http_header121 }
   elsif( $http_header121 && $http_header121 =~ s/\Q^Referer\x3A\E/^/i ) { $pcrereferer = $http_header121; undef $http_header121 }
   elsif( $http_header121 && $http_header121 =~ s/\QReferer\x3A\E/^/i ) { $pcrereferer = $http_header121; undef $http_header121 }
-     if( $http_header74  && $http_header74 =~ s/\Q^Referer\x3A\x20\E/^/i ) { $pcrereferer = $http_header74; undef $http_header74 }
-  elsif( $http_header74  && $http_header74 =~ s/\Q^Referer\x3A \E/^/i ) { $pcrereferer = $http_header74; undef $http_header74 }
-  elsif( $http_header74  && $http_header74 =~ s/\QReferer\x3A\x20\E/^/i ) { $pcrereferer = $http_header74; undef $http_header74 }
-  elsif( $http_header74  && $http_header74 =~ s/\QReferer\x3A \E/^/i ) { $pcrereferer = $http_header74; undef $http_header74 }
-  elsif( $http_header74  && $http_header74 =~ s/\Q^Referer\x3A\E/^/i ) { $pcrereferer = $http_header74; undef $http_header74 }
-  elsif( $http_header74  && $http_header74 =~ s/\QReferer\x3A\E/^/i ) { $pcrereferer = $http_header74; undef $http_header74 }
 
      if( $http_header68  && $http_header68 =~ s/\Q^Host\x3A\x20\E/^/i ) { $pcrehost = $http_header68; undef $http_header68 }
   elsif( $http_header68  && $http_header68 =~ s/\Q^Host\x3A \E/^/i ) { $pcrehost = $http_header68; undef $http_header68 }
@@ -972,12 +1068,20 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header121 && $http_header121 =~ s/\QHost\x3A \E/^/i ) { $pcrehost = $http_header121; undef $http_header121 }
   elsif( $http_header121 && $http_header121 =~ s/\Q^Host\x3A\E/^/i ) { $pcrehost = $http_header121; undef $http_header121 }
   elsif( $http_header121 && $http_header121 =~ s/\QHost\x3A\E/^/i ) { $pcrehost = $http_header121; undef $http_header121 }
-     if( $http_header74  && $http_header74 =~ s/\Q^Host\x3A\x20\E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
-  elsif( $http_header74  && $http_header74 =~ s/\Q^Host\x3A \E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
-  elsif( $http_header74  && $http_header74 =~ s/\QHost\x3A\x20\E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
-  elsif( $http_header74  && $http_header74 =~ s/\QHost\x3A \E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
-  elsif( $http_header74  && $http_header74 =~ s/\Q^Host\x3A\E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
-  elsif( $http_header74  && $http_header74 =~ s/\QHost\x3A\E/^/i ) { $pcrehost = $http_header74; undef $http_header74 }
+
+  $pcrereferer =~ s/(?<!\x5C)\x28/\x5C\x28/g if $pcrereferer; # (
+  $pcrereferer =~ s/(?<!\x5C)\x29/\x5C\x29/g if $pcrereferer; # )
+  $pcrereferer =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $pcrereferer; # *
+  $pcrereferer =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $pcrereferer; # +
+  $pcrereferer =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $pcrereferer; # -
+  $pcrereferer =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $pcrereferer; # .
+  $pcrereferer =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $pcrereferer; # /
+  $pcrereferer =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $pcrereferer; # ?
+  $pcrereferer =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $pcrereferer; # [
+  $pcrereferer =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $pcrereferer; # ]
+  #$pcrereferer =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $pcrereferer; # ^
+  $pcrereferer =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $pcrereferer; # {
+  $pcrereferer =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $pcrereferer; # }
 
   if( $pcrereferer !~ /\\x/ && $pcrereferer =~ /^\^/ && $pcrereferer !~ /^\^\\\-\$$/ )
   {
@@ -1048,51 +1152,19 @@ foreach $_ ( @fileemergingthreats )
   }
 
   # http_user_agent short
-  if( $http_header68 && $http_header74 && $http_header121 && length($http_header68) >= (length($http_header74) or length($http_header121)) )
+  if( $http_header68 && $http_header121 && length($http_header68) >= length($http_header121) )
   {
    $httpagentshort= "$http_header68" if $http_header68;
   }
-  elsif( $http_header68 && $http_header74 && $http_header121 && length($http_header74) >= (length($http_header68) or length($http_header121)) )
-  {
-   $httpagentshort= "$http_header74" if $http_header74;
-  }
-  elsif( $http_header68 && $http_header74 && $http_header121 && length($http_header121) >= (length($http_header68) or length($http_header74)) )
+  elsif( $http_header68 && $http_header121 && length($http_header121) >= length($http_header68) )
   {
    $httpagentshort= "$http_header121" if $http_header121;
   }
-  elsif( $http_header68 && $http_header74 && !$http_header121 && length($http_header68) >= length($http_header74) )
+  elsif( $http_header68 && !$http_header121 )
   {
    $httpagentshort= "$http_header68" if $http_header68;
   }
-  elsif( $http_header68 && $http_header74 && !$http_header121 && length($http_header74) >= length($http_header68) )
-  {
-   $httpagentshort= "$http_header74" if $http_header74;
-  }
-  elsif( $http_header68 && $http_header121 && !$http_header74 && length($http_header68) >= length($http_header121) )
-  {
-   $httpagentshort= "$http_header68" if $http_header68;
-  }
-  elsif( $http_header68 && $http_header121 && !$http_header74 && length($http_header121) >= length($http_header68) )
-  {
-   $httpagentshort= "$http_header121" if $http_header121;
-  }
-  elsif( $http_header74 && $http_header121 && !$http_header68 && length($http_header74) >= length($http_header121) )
-  {
-   $httpagentshort= "$http_header74" if $http_header74;
-  }
-  elsif( $http_header74 && $http_header121 && !$http_header68 && length($http_header121) >= length($http_header74) )
-  {
-   $httpagentshort= "$http_header121" if $http_header121;
-  }
-  elsif( $http_header68 && !$http_header74 && !$http_header121 )
-  {
-   $httpagentshort= "$http_header68" if $http_header68;
-  }
-  elsif( $http_header74 && !$http_header68 && !$http_header121 )
-  {
-   $httpagentshort= "$http_header74" if $http_header74;
-  }
-  elsif( $http_header121 && !$http_header68 && !$http_header74 )
+  elsif( $http_header121 && !$http_header68 )
   {
    $httpagentshort= "$http_header121" if $http_header121;
   }
@@ -1128,18 +1200,6 @@ foreach $_ ( @fileemergingthreats )
    undef $http_header121;
    print "ok trouvé grep121c\n" if $debug1;
   }
-  if( $pcre_agent79 && $http_header74 && $pcre_agent79=~/\Q$http_header74\E/i ) {
-   undef $http_header74;
-   print "ok trouvé grep74a\n" if $debug1;
-  }
-  elsif( $pcre_agent79 && $http_header74 && $http_header74=~s/\&/\\x26/g && $pcre_agent79=~/\Q$http_header74\E/i ) {
-   undef $http_header74;
-   print "ok trouvé grep74b\n" if $debug1;
-  }
-  elsif( $pcre_agent79 && $http_header74 && $http_header74=~s/\=/\\x3D/g && $pcre_agent79=~/\Q$http_header74\E/i ) {
-   undef $http_header74;
-   print "ok trouvé grep74c\n" if $debug1;
-  }
 
   # one uri
   #$abc1= "$http_uri03" if $http_uri03 && !$http_uri08 && !$http_uri13 && !$http_uri18 && !$http_uri23 && !$http_uri28 && !$http_uri33 && !$http_uri38 && !$http_uri43 && !$http_uri48 && !$http_uri53 && !$http_uri58 && !$http_uri63 && !$pcre_uri73;
@@ -1158,23 +1218,13 @@ foreach $_ ( @fileemergingthreats )
   $abc1= "$pcre_uri73" if $pcre_uri73 && !$http_uri03 && !$http_uri08 && !$http_uri13 && !$http_uri18 && !$http_uri23 && !$http_uri28 && !$http_uri33 && !$http_uri38 && !$http_uri43 && !$http_uri48 && !$http_uri53 && !$http_uri58 && !$http_uri63;
 
   # one header
-  $httppcreagent= "$http_header68" if $http_header68 && !$http_header121 && !$http_header74 && !$pcre_agent79 && $http_header68 =~ /(?:\\|\^|\$)/;
-  $httppcreagent= "$http_header121" if $http_header121 && !$http_header68 && !$http_header74 && !$pcre_agent79 && $http_header121 =~ /(?:\\|\^|\$)/;
-  $httppcreagent= "$http_header74" if $http_header74 && !$http_header121 && !$http_header68 && !$pcre_agent79 && $http_header74 =~ /(?:\\|\^|\$)/;
-  $httppcreagent= "$pcre_agent79" if $pcre_agent79 && !$http_header68 && !$http_header121 && !$http_header74;
+  $httppcreagent= "$http_header68" if $http_header68 && !$http_header121 && !$pcre_agent79 && $http_header68 =~ /(?:\\|\^|\$)/;
+  $httppcreagent= "$http_header121" if $http_header121 && !$http_header68 && !$pcre_agent79 && $http_header121 =~ /(?:\\|\^|\$)/;
+  $httppcreagent= "$pcre_agent79" if $pcre_agent79 && !$http_header68 && !$http_header121;
 
   # two headers
-  if( ($http_header68 && $http_header74 && !$http_header121) && (defined($distance75)||defined($distance76)||defined($distance77)||defined($distance78)) ) {
-   $httppcreagent= "(?:$http_header68.*?$http_header74)" if $http_header68 && $http_header74;
-  }
-  elsif( ($http_header68 && $http_header74 && !$http_header121) && !(defined($distance75)||defined($distance76)||defined($distance77)||defined($distance78)) ) {
-   $httppcreagent= "(?:$http_header68.*?$http_header74|$http_header74.*?$http_header68)" if $http_header68 && $http_header74;
-  }
-  elsif( ($http_header68 && !$http_header74 && $http_header121) && (defined($distance124)||defined($distance125)||defined($distance128)||defined($distance129)) ) {
+  if( ($http_header68 && $http_header121) && (defined($distance124)||defined($distance125)||defined($distance128)||defined($distance129)) ) {
    $httppcreagent= "(?:$http_header68.*?$http_header121)" if $http_header68 && $http_header121;
-  }
-  elsif( ($http_header68 && !$http_header74 && $http_header121) && !(defined($distance124)||defined($distance125)||defined($distance128)||defined($distance129)) ) {
-   $httppcreagent= "(?:$http_header68.*?$http_header121|$http_header121.*?$http_header68)" if $http_header68 && $http_header121;
   }
 
   # two uri
@@ -1225,15 +1275,6 @@ foreach $_ ( @fileemergingthreats )
    }
   }
 
-  # three headers
-  if( (defined($distance75)||defined($distance76)||defined($distance77)||defined($distance78)) && (defined($distance124)||defined($distance125)||defined($distance128)||defined($distance129)) ) {
-    $httppcreagent= "(?:$http_header68.*$http_header121.*$http_header74)" if $http_header68 && $http_header74 && $http_header121 && !$pcre_agent79;
-  }
-  elsif( !(defined($distance75)||defined($distance76)||defined($distance77)||defined($distance78)) && !(defined($distance124)||defined($distance125)||defined($distance128)||defined($distance129)) ) {
-    $httppcreagent= "(?:$http_header68.*$http_header121.*$http_header74|$http_header68.*$http_header74.*$http_header121|$http_header74.*$http_header68.*$http_header121|$http_header74.*$http_header121.*$http_header68)" if $http_header68 && $http_header121 && $http_header74 && !$pcre_agent79;
-    $httppcreagent= "(?:$http_header68.*$http_header121.*$pcre_agent79|$http_header68.*$pcre_agent79.*$http_header121|$pcre_agent79.*$http_header68.*$http_header121|$pcre_agent79.*$http_header121.*$http_header68)" if $http_header68 && $http_header121 && $pcre_agent79 && !$http_header74;
-  }
- 
   # three uri
   if( !$pcre_uri73 && (defined($distance9)||defined($distance10)||defined($distance11)||defined($distance12)) && (defined($distance14)||defined($distance15)||defined($distance16)||defined($distance17)) && !(defined($distance19)||defined($distance20)||defined($distance21)||defined($distance22)) ) {
    @tableauuridistance1 = ( $http_uri03, $http_uri08, $http_uri13 ) if $http_uri03 && $http_uri08 && $http_uri13 && !$http_uri18 && !$http_uri23 && !$http_uri28 && !$http_uri33 && !$http_uri38 && !$http_uri43 && !$http_uri48 && !$http_uri53 && !$http_uri58 && !$http_uri63 && !$pcre_uri73;
@@ -1424,10 +1465,6 @@ foreach $_ ( @fileemergingthreats )
      $httppcreagent_nocase=$http_headernocase123 if $http_headernocase123;
      $httppcreagent_nocase=$http_headerfast126  if $http_headerfast126;
      $httppcreagent_nocase=$http_headernocase127 if $http_headernocase127;
-     $httppcreagent_nocase=$http_headerfast132  if $http_headerfast132;
-     $httppcreagent_nocase=$http_headernocase104 if $http_headernocase104;
-     $httppcreagent_nocase=$http_headerfast136  if $http_headerfast136;
-     $httppcreagent_nocase=$http_headernocase107 if $http_headernocase107;
 
   if( $httpagentshort && $httppcreagent )
   {
@@ -1441,22 +1478,40 @@ foreach $_ ( @fileemergingthreats )
    }
   }
 
-  print "httpuricourt1: $etmsg1, ".lc($httpuricourt)."\n" if $debug1 && $httpuricourt;
+  # check again if pcre need escape
+  $httppcreagent =~ s/(?<!\x5C)\x28/\x5C\x28/g if $httppcreagent; # (
+  $httppcreagent =~ s/(?<!\x5C)\x29/\x5C\x29/g if $httppcreagent; # )
+  $httppcreagent =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $httppcreagent; # *
+  $httppcreagent =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $httppcreagent; # +
+  $httppcreagent =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $httppcreagent; # -
+  $httppcreagent =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $httppcreagent; # .
+  $httppcreagent =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $httppcreagent; # /
+  $httppcreagent =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $httppcreagent; # ?
+  $httppcreagent =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $httppcreagent; # [
+  $httppcreagent =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $httppcreagent; # ]
+  #$httppcreagent =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $httppcreagent; # ^
+  $httppcreagent =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $httppcreagent; # {
+  $httppcreagent =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $httppcreagent; # }
+
+  print "httpuricourt1: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong1: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
   print "tableaupcreuri1: $etmsg1, $abc1, $abc1_nocase\n" if $debug1 && $abc1;
   print "tableaupcreagent1: $etmsg1, $httppcreagent, $httppcreagent_nocase\n" if $debug1 && $httppcreagent;
   print "httpagentshort1: $etmsg1, ".lc($httpagentshort)."\n" if $debug1 && $httpagentshort;
-  print "tableauhttpmethod1: $etmsg1, $http_method2, $http_methodnocase3\n" if $debug1 && $http_method2;
+  print "tableauhttpmethod1: $etmsg1, $http_method1, $http_methodnocase1\n" if $debug1 && $http_method1;
   print "httpreferer1: $etmsg1, ".lc($httpreferer)."\n" if $debug1 && $httpreferer;
   print "tableaupcrereferer1: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
   print "httpurilongdistance1: $etmsg1, @tableauuridistance1\n" if $debug1 && @tableauuridistance1;
   print "httphost1: $etmsg1, ".lc($httphost)."\n" if $debug1 && $httphost;
   print "tableaupcrehost1: $etmsg1, $pcrehost\n" if $debug1 && $pcrehost;
-  print "http_urilen1: $etmsg1, $http_urilen\n" if $debug1 && $http_urilen;
+  print "http_urilen1: $etmsg1, $http_urilen1\n" if $debug1 && $http_urilen1;
 
-  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth, $http_urioffset ] if $httpuricourt && $http_uridepth && $http_urioffset;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth ] if $httpuricourt && $http_uridepth && !$http_urioffset;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt && !$http_uridepth && !$http_urioffset;
+  #
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
-  $hash{$etmsg1}{httpmethod} = [ $http_method2, $http_methodnocase3 ] if $http_method2;
+  $hash{$etmsg1}{httpmethod} = [ $http_method1, $http_methodnocase1 ] if $http_method1;
   $hash{$etmsg1}{httpreferer} = [ lc($httpreferer) ] if $httpreferer;
   $hash{$etmsg1}{pcrereferer} = [ $pcrereferer ] if $pcrereferer;
   $hash{$etmsg1}{pcreuri} = [ $abc1, $abc1_nocase ] if $abc1;
@@ -1465,7 +1520,7 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{httpurilongdistance} = [ @tableauuridistance1 ] if @tableauuridistance1;
   $hash{$etmsg1}{httphost} = [ lc($httphost) ] if $httphost;
   $hash{$etmsg1}{pcrehost} = [ $pcrehost ] if $pcrehost;
-  $hash{$etmsg1}{httpurilen} = [ $http_urilen ] if $http_urilen;
+  $hash{$etmsg1}{httpurilen} = [ $http_urilen1 ] if $http_urilen1;
 
   next;
  }
@@ -1473,32 +1528,68 @@ foreach $_ ( @fileemergingthreats )
  # begin uricontent
  elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*(?:uri)?content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$pcreuri)?(?:$extracontentoptions)?$referencesidrev$/ )
  {
-  my $etmsg1=$1;
-  my $http_urilen=$2 if $2;
   my $http_method2=0;
-  my $http_methodnocase3=0;
-  print "brut2: $_\n" if $debug1;
-  #print "here2: 1: $1, 2: $2, 3: $3, 4: $4, 5: $5, 6: $6, 7: $7, 8: $8, 9: $9, 10: $10, 11: $11, 12: $12, 13: $13, 14: $14, 15: $15, 16: $16, 17: $17, 18: $18, 19: $19, 20: $20, 21: $21, 22: $22, 23: $23, 24: $24, 25: $25, 26: $26, 27: $27, 28: $28, 29: $29, 30: $30, 31: $31, 32: $32, 33: $33\n" if $debug1;
-
+  my $http_methodnocase2=0;
+  my $http_urioffset=0;
+  my $http_uridepth=0;
+  #
+  if( $debug1 ){
+   print "brut2: $_\n"; print "here2: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32," if $32; print " 33: $33," if $33; print " 34: $34," if $34; print " 35: $35," if $35; print " 36: $36," if $36; print " 37: $37," if $37; print " 38: $38," if $38; print " 39: $39," if $39; print " 40: $40," if $40; print " 41: $41," if $41; print " 42: $42," if $42; print " 43: $43," if $43; print " 44: $44," if $44; print " 45: $45," if $45; print " 46: $46" if $46; print "\n";
+  }
+  #
+  my $etmsg1=$1;
+  my $http_urilen2=$2 if $2;
+  #
      $http_method2=$3 if $3;
-     $http_methodnocase3=$4 if $4;
-
-  my $http_uri03=$5 if $5;		# 4
+     $http_methodnocase2=$4 if $4;
+  #
+  my $http_uri03=$5 if $5;		# old 5
   my $http_urifast5=$6 if $6;
-  my $http_urinocase5=$7 if $7;		# 5
-  my $http_header06=$9 if $9;		# 8
-  my $http_headernocase9=$10 if $10;	# 9
-  my $http_headernocase12=$13 if $13;	# 12
-  my $http_uri11=$19 if $19;		# 15
-  my $http_urifast19=$20 if $20;
-  my $http_urinocase16=$21 if $21;	# 16
-  my $http_uri14=$24 if $24;		# 19
-  my $http_urifast24=$25 if $25;
-  my $http_urinocase20=$26 if $26;	# 20
-  my $http_uri17=$29 if $29;		# 23
-  my $http_urifast29=$30 if $30;
-  my $http_urinocase23=$31 if $31;	# 24
-  my $pcre_uri20=$34 if $34;		# 27
+  my $http_urinocase5=$7 if $7;
+     $http_urioffset=$8 if $8;
+     $http_uridepth=$9 if $9;
+  # distance
+  # distance
+  #
+  my $http_header06=$12 if $12;		# old 9
+  # fastpattern
+  my $http_headernocase9=$14 if $14;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  my $http_headernocase12=$19 if $19;
+  # fastpattern
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_uri11=$25 if $25;		# old 19
+  my $http_urifast19=$26 if $26;
+  my $http_urinocase16=$27 if $27;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_uri14=$32 if $32;		# old 24
+  my $http_urifast24=$33 if $33;
+  my $http_urinocase20=$34 if $34;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_uri17=$39 if $39;		# old 29
+  my $http_urifast29=$40 if $40;
+  my $http_urinocase23=$41 if $41;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $pcre_uri20=$46 if $46;		# old 34
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -1513,25 +1604,26 @@ foreach $_ ( @fileemergingthreats )
   if( $http_uri03_length >= $http_uri11_length && $http_uri03_length >= $http_uri14_length && $http_uri03_length >= $http_uri17_length )
   { $httpuricourt=$http_uri03; }
   elsif( $http_uri11_length >= $http_uri03_length && $http_uri11_length >= $http_uri14_length && $http_uri11_length >= $http_uri17_length )
-  { $httpuricourt=$http_uri11; }
+  { $httpuricourt=$http_uri11; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri14_length >= $http_uri03_length && $http_uri14_length >= $http_uri11_length && $http_uri14_length >= $http_uri17_length )
-  { $httpuricourt=$http_uri14; }
+  { $httpuricourt=$http_uri14; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri17_length >= $http_uri03_length && $http_uri17_length >= $http_uri11_length && $http_uri17_length >= $http_uri14_length )
-  { $httpuricourt=$http_uri17; }
+  { $httpuricourt=$http_uri17; $http_urioffset=0; $http_uridepth=0; }
 
-  $http_uri03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri03; # (
-  $http_uri03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri03; # )
-  $http_uri03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri03; # *
-  $http_uri03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri03; # +
-  $http_uri03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri03; # -
-  $http_uri03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri03; # .
-  $http_uri03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri03; # /
-  $http_uri03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri03; # ?
-  $http_uri03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri03; # [
-  $http_uri03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri03; # ]
-  $http_uri03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri03; # ^
-  $http_uri03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri03; # {
-  $http_uri03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri03; # }
+  # need escape special char before compare with pcre
+  $http_uri03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri03 && $pcre_uri20; # (
+  $http_uri03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri03 && $pcre_uri20; # )
+  $http_uri03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri03 && $pcre_uri20; # *
+  $http_uri03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri03 && $pcre_uri20; # +
+  $http_uri03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri03 && $pcre_uri20; # -
+  $http_uri03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri03 && $pcre_uri20; # .
+  $http_uri03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri03 && $pcre_uri20; # /
+  $http_uri03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri03 && $pcre_uri20; # ?
+  $http_uri03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri03 && $pcre_uri20; # [
+  $http_uri03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri03 && $pcre_uri20; # ]
+  $http_uri03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri03 && $pcre_uri20; # ^
+  $http_uri03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri03 && $pcre_uri20; # {
+  $http_uri03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri03 && $pcre_uri20; # }
   $http_header06 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header06; # (
   $http_header06 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header06; # )
   $http_header06 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header06; # *
@@ -1545,45 +1637,45 @@ foreach $_ ( @fileemergingthreats )
   #$http_header06 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header06; # ^
   $http_header06 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header06; # {
   $http_header06 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header06; # }
-  $http_uri11 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri11; # (
-  $http_uri11 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri11; # )
-  $http_uri11 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri11; # *
-  $http_uri11 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri11; # +
-  $http_uri11 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri11; # -
-  $http_uri11 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri11; # .
-  $http_uri11 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri11; # /
-  $http_uri11 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri11; # ?
-  $http_uri11 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri11; # [
-  $http_uri11 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri11; # ]
-  $http_uri11 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri11; # ^
-  $http_uri11 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri11; # {
-  $http_uri11 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri11; # }
-  $http_uri14 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri14; # (
-  $http_uri14 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri14; # )
-  $http_uri14 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri14; # *
-  $http_uri14 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri14; # +
-  $http_uri14 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri14; # -
-  $http_uri14 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri14; # .
-  $http_uri14 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri14; # /
-  $http_uri14 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri14; # ?
-  $http_uri14 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri14; # [
-  $http_uri14 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri14; # ]
-  $http_uri14 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri14; # ^
-  $http_uri14 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri14; # {
-  $http_uri14 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri14; # }
-  $http_uri17 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri17; # (
-  $http_uri17 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri17; # )
-  $http_uri17 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri17; # *
-  $http_uri17 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri17; # +
-  $http_uri17 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri17; # -
-  $http_uri17 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri17; # .
-  $http_uri17 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri17; # /
-  $http_uri17 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri17; # ?
-  $http_uri17 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri17; # [
-  $http_uri17 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri17; # ]
-  $http_uri17 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri17; # ^
-  $http_uri17 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri17; # {
-  $http_uri17 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri17; # }
+  $http_uri11 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri11 && $pcre_uri20; # (
+  $http_uri11 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri11 && $pcre_uri20; # )
+  $http_uri11 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri11 && $pcre_uri20; # *
+  $http_uri11 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri11 && $pcre_uri20; # +
+  $http_uri11 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri11 && $pcre_uri20; # -
+  $http_uri11 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri11 && $pcre_uri20; # .
+  $http_uri11 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri11 && $pcre_uri20; # /
+  $http_uri11 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri11 && $pcre_uri20; # ?
+  $http_uri11 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri11 && $pcre_uri20; # [
+  $http_uri11 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri11 && $pcre_uri20; # ]
+  $http_uri11 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri11 && $pcre_uri20; # ^
+  $http_uri11 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri11 && $pcre_uri20; # {
+  $http_uri11 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri11 && $pcre_uri20; # }
+  $http_uri14 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri14 && $pcre_uri20; # (
+  $http_uri14 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri14 && $pcre_uri20; # )
+  $http_uri14 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri14 && $pcre_uri20; # *
+  $http_uri14 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri14 && $pcre_uri20; # +
+  $http_uri14 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri14 && $pcre_uri20; # -
+  $http_uri14 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri14 && $pcre_uri20; # .
+  $http_uri14 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri14 && $pcre_uri20; # /
+  $http_uri14 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri14 && $pcre_uri20; # ?
+  $http_uri14 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri14 && $pcre_uri20; # [
+  $http_uri14 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri14 && $pcre_uri20; # ]
+  $http_uri14 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri14 && $pcre_uri20; # ^
+  $http_uri14 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri14 && $pcre_uri20; # {
+  $http_uri14 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri14 && $pcre_uri20; # }
+  $http_uri17 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri17 && $pcre_uri20; # (
+  $http_uri17 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri17 && $pcre_uri20; # )
+  $http_uri17 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri17 && $pcre_uri20; # *
+  $http_uri17 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri17 && $pcre_uri20; # +
+  $http_uri17 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri17 && $pcre_uri20; # -
+  $http_uri17 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri17 && $pcre_uri20; # .
+  $http_uri17 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri17 && $pcre_uri20; # /
+  $http_uri17 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri17 && $pcre_uri20; # ?
+  $http_uri17 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri17 && $pcre_uri20; # [
+  $http_uri17 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri17 && $pcre_uri20; # ]
+  $http_uri17 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri17 && $pcre_uri20; # ^
+  $http_uri17 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri17 && $pcre_uri20; # {
+  $http_uri17 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri17 && $pcre_uri20; # }
   #$pcre_uri20 =~ s/(?<!\x5C)\x24//g         if $pcre_uri20; # $
 
   while($http_uri03 && $http_uri03=~/(?<!\x5C)\|(.*?)\|/g) {
@@ -1619,6 +1711,7 @@ foreach $_ ( @fileemergingthreats )
   my @tableauuri1;
 
      if( $http_header06 && $http_header06 =~ s/\QUser\-Agent\x3A\x20\E(?!$)/^/i ) { }
+  elsif( $http_header06 && $http_header06 =~ s/\QUser-Agent\x3A\x20\E(?!$)/^/i ) { }
   elsif( $http_header06 && $http_header06 =~ s/\QUser\-Agent\x3A\x20\E$/^/i ) { undef($http_header06) }
   elsif( $http_header06 && $http_header06 =~ s/\QUser\-Agent\x3A \E(?!$)/^/i ) { }
   elsif( $http_header06 && $http_header06 =~  /\QUser\-Agent\x3A \E$/i ) { undef($http_header06) }
@@ -1828,23 +1921,41 @@ foreach $_ ( @fileemergingthreats )
      $httppcreagent_nocase=$http_headernocase9 if $http_headernocase9;
      $httppcreagent_nocase=$http_headernocase12 if $http_headernocase12;
 
-  print "httpuricourt2: $etmsg1, ".lc($httpuricourt)."\n" if $debug1 && $httpuricourt;
+  # check again if pcre need escape
+  $httppcreagent =~ s/(?<!\x5C)\x28/\x5C\x28/g if $httppcreagent; # (
+  $httppcreagent =~ s/(?<!\x5C)\x29/\x5C\x29/g if $httppcreagent; # )
+  $httppcreagent =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $httppcreagent; # *
+  $httppcreagent =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $httppcreagent; # +
+  $httppcreagent =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $httppcreagent; # -
+  $httppcreagent =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $httppcreagent; # .
+  $httppcreagent =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $httppcreagent; # /
+  $httppcreagent =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $httppcreagent; # ?
+  $httppcreagent =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $httppcreagent; # [
+  $httppcreagent =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $httppcreagent; # ]
+  #$httppcreagent =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $httppcreagent; # ^
+  $httppcreagent =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $httppcreagent; # {
+  $httppcreagent =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $httppcreagent; # }
+
+  print "httpuricourt2: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong2: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
   print "tableaupcreuri2: $etmsg1, $abc1, $abc1_nocase\n" if $debug1 && $abc1;
   print "tableaupcreagent2: $etmsg1, $httppcreagent, $httppcreagent_nocase\n" if $debug1 && $httppcreagent;
   print "httpagentshort2: $etmsg1, ".lc($httpagentshort)."\n" if $debug1 && $httpagentshort;
-  print "tableauhttpmethod2: $etmsg1, $http_method2, $http_methodnocase3\n" if $debug1 && $http_method2;
+  print "tableauhttpmethod2: $etmsg1, $http_method2, $http_methodnocase2\n" if $debug1 && $http_method2;
   print "tableaupcrereferer2: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
-  print "http_urilen2: $etmsg1, $http_urilen\n" if $debug1 && $http_urilen;
+  print "http_urilen2: $etmsg1, $http_urilen2\n" if $debug1 && $http_urilen2;
 
-  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth, $http_urioffset ] if $httpuricourt && $http_uridepth && $http_urioffset;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth ] if $httpuricourt && $http_uridepth && !$http_urioffset;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt && !$http_uridepth && !$http_urioffset;
+  #
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
-  $hash{$etmsg1}{httpmethod} = [ $http_method2, $http_methodnocase3 ] if $http_method2;
+  $hash{$etmsg1}{httpmethod} = [ $http_method2, $http_methodnocase2 ] if $http_method2;
   $hash{$etmsg1}{pcrereferer} = [ $pcrereferer ] if $pcrereferer;
   $hash{$etmsg1}{pcreuri} = [ $abc1, $abc1_nocase ] if $abc1;
   $hash{$etmsg1}{pcreagent} = [ $httppcreagent, $httppcreagent_nocase ] if $httppcreagent;
   $hash{$etmsg1}{httpurilong} = [ @tableauuri1 ] if @tableauuri1;
-  $hash{$etmsg1}{httpurilen} = [ $http_urilen ] if $http_urilen;
+  $hash{$etmsg1}{httpurilen} = [ $http_urilen2 ] if $http_urilen2;
 
   next;
  }
@@ -1852,43 +1963,77 @@ foreach $_ ( @fileemergingthreats )
  # begin http_uri followed by a http_header
  elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flowbits1)?(?:$flow1)?(?:$httpmethod)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:$extracontentoptions)?$referencesidrev$/ )
  {
-  my $etmsg1=$1;
-  my $http_method2=0;
+  my $http_method3=0;
   my $http_methodnocase3=0;
-  print "brut3: $_\n" if $debug1;
-  #print "here3: 1: $1, 2: $2, 3: $3, 4: $4, 5: $5, 6: $6, 7: $7, 8: $8, 9: $9, 10: $10, 11: $11, 12: $12, 13: $13, 14: $14, 15: $15, 16: $16, 17: $17, 18: $18, 19: $19, 20: $20, 21: $21, 22: $22, 23: $23, 24: $24, 25: $25, 26: $26, 27: $27, 28: $28, 29: $29, 30: $30, 31: $31, 32: $32, 33: $33, 34: $34, 35: $35, 36: $36, 37: $37, $38, $39, 40: $40\n" if $debug1;
-
-     $http_method2=$2 if $2;
+  my $http_urioffset=0;
+  my $http_uridepth=0;
+  #
+  if( $debug1 ){
+   print "brut3: $_\n"; print "here3: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32," if $32; print " 33: $33," if $33; print " 34: $34," if $34; print " 35: $35," if $35; print " 36: $36," if $36; print " 37: $37," if $37; print " 38: $38," if $38; print " 39: $39," if $39; print " 40: $40," if $40; print " 41: $41," if $41; print " 42: $42," if $42; print " 43: $43," if $43; print " 44: $44," if $44; print " 45: $45," if $45; print " 46: $46," if $46; print " 47: $47," if $47; print " 48: $48," if $48; print " 49: $49," if $49; print " 50: $50," if $50; print " 51: $51," if $51; print " 52: $52," if $52; print " 53: $53," if $53; print " 54: $54," if $54; print " 55: $55," if $55; print " 56: $56" if $56; print "\n";
+  }
+  #
+  my $etmsg1=$1;
+  #
+     $http_method3=$2 if $2;
      $http_methodnocase3=$3 if $3;
-  my $http_uri03=$4 if $4;			# 3
+  #
+  my $http_uri03=$4 if $4;			# old 4
   my $http_urifast5=$5 if $5;
-  my $http_urinocase5=$6 if $6;			# 5
-  my $http_urifast9=$9 if $9;
-  my $http_urinocase8=$10 if $10;		# 8
-  my $http_header08=$13 if $13;			# 11
-  my $http_headerfast14=$14 if $14;
-  my $http_headernocase12=$15 if $15;		# 12
-  my $http_headerfast18=$18 if $18;
-  my $http_headernocase15=$19 if $19;		# 15
-  my $http_uri13=$22 if $22;			# 18
-  my $http_urifast23=$23 if $23;
-  my $http_urinocase19=$24 if $24;		# 19
-  my $distance14=$25 if defined($25);		# 20
-  my $distance15=$26 if defined($26);		# 21
-  my $http_urifast27=$27 if $27;
-  my $http_urinocase22=$28 if $28;		# 22
-  my $distance16=$29 if defined($29);		# 23
-  my $distance17=$30 if defined($30);		# 24
-  my $http_header18=$31 if $31;			# 25
-  my $http_headerfast32=$32 if $32;
-  my $http_headernocase26=$33 if $33;		# 26
-  my $distance34=$34 if defined($34);
-  my $distance35=$35 if defined($35);
-  my $http_headerfast36=$36 if $36;
-  my $http_headernocase29=$37 if $37;		# 29
-  my $distance38=$38 if defined($38);
-  my $distance39=$39 if defined($39);
-  my $pcre_uri23=$40 if $40;			# 32
+  my $http_urinocase5=$6 if $6;
+     $http_urioffset=$7 if $7;
+     $http_uridepth=$8 if $8;
+  # distance
+  # distance
+  my $http_urifast9=$11 if $11;
+  my $http_urinocase8=$12 if $12;
+     $http_urioffset=$13 if $13;
+     $http_uridepth=$14 if $14;
+  # distance
+  # distance
+  #
+  my $http_header08=$17 if $17;			# old 13
+  my $http_headerfast14=$18 if $18;
+  my $http_headernocase12=$19 if $19;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  my $http_headerfast18=$24 if $24;
+  my $http_headernocase15=$25 if $25;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_uri13=$30 if $30;			# old 22
+  my $http_urifast23=$31 if $31;
+  my $http_urinocase19=$32 if $32;
+  # offset/depth
+  # offset/depth
+  my $distance14=$35 if defined($35);
+  my $distance15=$36 if defined($36);
+  my $http_urifast27=$37 if $37;
+  my $http_urinocase22=$38 if $38;
+  # offset/depth
+  # offset/depth
+  my $distance16=$41 if defined($41);
+  my $distance17=$42 if defined($42);
+  #
+  my $http_header18=$43 if $43;			# old 31
+  my $http_headerfast32=$44 if $44;
+  my $http_headernocase26=$45 if $45;
+  # offset/depth
+  # offset/depth
+  my $distance34=$48 if defined($48);
+  my $distance35=$49 if defined($49);
+  my $http_headerfast36=$50 if $50;
+  my $http_headernocase29=$51 if $51;
+  # offset/depth
+  # offset/depth
+  my $distance38=$54 if defined($54);
+  my $distance39=$55 if defined($55);
+  #
+  my $pcre_uri23=$56 if $56;			# old 40
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -1899,21 +2044,22 @@ foreach $_ ( @fileemergingthreats )
   if( $http_uri03_length >= $http_uri13_length )
   { $httpuricourt=$http_uri03; }
   elsif( $http_uri13_length >= $http_uri03_length )
-  { $httpuricourt=$http_uri13; }
+  { $httpuricourt=$http_uri13; $http_urioffset=0; $http_uridepth=0; }
 
-  $http_uri03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri03; # (
-  $http_uri03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri03; # )
-  $http_uri03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri03; # *
-  $http_uri03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri03; # +
-  $http_uri03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri03; # -
-  $http_uri03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri03; # .
-  $http_uri03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri03; # /
-  $http_uri03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri03; # ?
-  $http_uri03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri03; # [
-  $http_uri03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri03; # ]
-  $http_uri03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri03; # ^
-  $http_uri03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri03; # {
-  $http_uri03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri03; # }
+  # need escape special char before compare with pcre
+  $http_uri03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri03 && $pcre_uri23; # (
+  $http_uri03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri03 && $pcre_uri23; # )
+  $http_uri03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri03 && $pcre_uri23; # *
+  $http_uri03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri03 && $pcre_uri23; # +
+  $http_uri03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri03 && $pcre_uri23; # -
+  $http_uri03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri03 && $pcre_uri23; # .
+  $http_uri03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri03 && $pcre_uri23; # /
+  $http_uri03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri03 && $pcre_uri23; # ?
+  $http_uri03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri03 && $pcre_uri23; # [
+  $http_uri03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri03 && $pcre_uri23; # ]
+  $http_uri03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri03 && $pcre_uri23; # ^
+  $http_uri03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri03 && $pcre_uri23; # {
+  $http_uri03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri03 && $pcre_uri23; # }
   $http_header08 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header08; # (
   $http_header08 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header08; # )
   $http_header08 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header08; # *
@@ -1927,19 +2073,19 @@ foreach $_ ( @fileemergingthreats )
   #$http_header08 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header08; # ^
   $http_header08 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header08; # {
   $http_header08 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header08; # }
-  $http_uri13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri13; # (
-  $http_uri13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri13; # )
-  $http_uri13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri13; # *
-  $http_uri13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri13; # +
-  $http_uri13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri13; # -
-  $http_uri13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri13; # .
-  $http_uri13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri13; # /
-  $http_uri13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri13; # ?
-  $http_uri13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri13; # [
-  $http_uri13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri13; # ]
-  $http_uri13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri13; # ^
-  $http_uri13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri13; # {
-  $http_uri13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri13; # }
+  $http_uri13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri13 && $pcre_uri23; # (
+  $http_uri13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri13 && $pcre_uri23; # )
+  $http_uri13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri13 && $pcre_uri23; # *
+  $http_uri13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri13 && $pcre_uri23; # +
+  $http_uri13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri13 && $pcre_uri23; # -
+  $http_uri13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri13 && $pcre_uri23; # .
+  $http_uri13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri13 && $pcre_uri23; # /
+  $http_uri13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri13 && $pcre_uri23; # ?
+  $http_uri13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri13 && $pcre_uri23; # [
+  $http_uri13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri13 && $pcre_uri23; # ]
+  $http_uri13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri13 && $pcre_uri23; # ^
+  $http_uri13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri13 && $pcre_uri23; # {
+  $http_uri13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri13 && $pcre_uri23; # }
   $http_header18 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header18; # (
   $http_header18 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header18; # )
   $http_header18 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header18; # *
@@ -1984,6 +2130,7 @@ foreach $_ ( @fileemergingthreats )
   my @tableauuri1;
 
      if( $http_header08 && $http_header08 =~ s/\QUser\-Agent\x3A\x20\E(?!$)/^/i ) { }
+  elsif( $http_header08 && $http_header08 =~ s/\QUser-Agent\x3A\x20\E(?!$)/^/i ) { }
   elsif( $http_header08 && $http_header08 =~ s/\QUser\-Agent\x3A\x20\E$/^/i ) { undef($http_header08) }
   elsif( $http_header08 && $http_header08 =~ s/\QUser\-Agent\x3A \E(?!$)/^/i ) { }
   elsif( $http_header08 && $http_header08 =~  /\QUser\-Agent\x3A \E$/i ) { undef($http_header08) }
@@ -2003,6 +2150,7 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header08 && $http_header08 =~  /\QUser-Agent\:\E$/i ) { undef($http_header08) }
                            $http_header08 =~ s/\Q\x0D\x0A\E/\$/i if $http_header08; # http_header, \x0D\x0A
      if( $http_header18 && $http_header18 =~ s/\QUser\-Agent\x3A\x20\E(?!$)/^/i ) { }
+  elsif( $http_header18 && $http_header18 =~ s/\QUser-Agent\x3A\x20\E(?!$)/^/i ) { }
   elsif( $http_header18 && $http_header18 =~ s/\QUser\-Agent\x3A\x20\E$/^/i ) { undef($http_header18) }
   elsif( $http_header18 && $http_header18 =~ s/\QUser\-Agent\x3A \E(?!$)/^/i ) { }
   elsif( $http_header18 && $http_header18 =~  /\QUser\-Agent\x3A \E$/i ) { undef($http_header18) }
@@ -2159,17 +2307,35 @@ foreach $_ ( @fileemergingthreats )
      $httppcreagent_nocase=$http_headerfast36   if $http_headerfast36;
      $httppcreagent_nocase=$http_headernocase29 if $http_headernocase29;
 
-  print "httpuricourt3: $etmsg1, ".lc($httpuricourt)."\n" if $debug1 && $httpuricourt;
+  # check again if pcre need escape
+  $httppcreagent =~ s/(?<!\x5C)\x28/\x5C\x28/g if $httppcreagent; # (
+  $httppcreagent =~ s/(?<!\x5C)\x29/\x5C\x29/g if $httppcreagent; # )
+  $httppcreagent =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $httppcreagent; # *
+  $httppcreagent =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $httppcreagent; # +
+  $httppcreagent =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $httppcreagent; # -
+  $httppcreagent =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $httppcreagent; # .
+  $httppcreagent =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $httppcreagent; # /
+  $httppcreagent =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $httppcreagent; # ?
+  $httppcreagent =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $httppcreagent; # [
+  $httppcreagent =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $httppcreagent; # ]
+  #$httppcreagent =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $httppcreagent; # ^
+  $httppcreagent =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $httppcreagent; # {
+  $httppcreagent =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $httppcreagent; # }
+
+  print "httpuricourt3: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong3: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
   print "tableaupcreuri3: $etmsg1, $abc1, $abc1_nocase\n" if $debug1 && $abc1;
   print "tableaupcreagent3: $etmsg1, $httppcreagent, $httppcreagent_nocase\n" if $debug1 && $httppcreagent;
   print "httpagentshort3: $etmsg1, ".lc($httpagentshort)."\n" if $debug1 && $httpagentshort;
-  print "tableauhttpmethod3: $etmsg1, $http_method2, $http_methodnocase3\n" if $debug1 && $http_method2;
+  print "tableauhttpmethod3: $etmsg1, $http_method3, $http_methodnocase3\n" if $debug1 && $http_method3;
   print "tableaupcrereferer3: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
 
-  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth, $http_urioffset ] if $httpuricourt && $http_uridepth && $http_urioffset;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth ] if $httpuricourt && $http_uridepth && !$http_urioffset;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt && !$http_uridepth && !$http_urioffset;
+  #
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
-  $hash{$etmsg1}{httpmethod} = [ $http_method2, $http_methodnocase3 ] if $http_method2;
+  $hash{$etmsg1}{httpmethod} = [ $http_method3, $http_methodnocase3 ] if $http_method3;
   $hash{$etmsg1}{pcrereferer} = [ $pcrereferer ] if $pcrereferer;
   $hash{$etmsg1}{pcreuri} = [ $abc1, $abc1_nocase ] if $abc1;
   $hash{$etmsg1}{pcreagent} = [ $httppcreagent, $httppcreagent_nocase ] if $httppcreagent;
@@ -2181,63 +2347,108 @@ foreach $_ ( @fileemergingthreats )
  # begin http_header
  elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:$pcreagent)?(?:$extracontentoptions)?$referencesidrev$/ )
  {
+  my $http_method4=0;
+  my $http_methodnocase4=0;
+  my $http_urioffset=0;
+  my $http_uridepth=0;
+  #
+  if( $debug1 ){
+   print "brut4: $_\n"; print "here4: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32," if $32; print " 33: $33," if $33; print " 34: $34," if $34; print " 35: $35," if $35; print " 36: $36," if $36; print " 37: $37," if $37; print " 38: $38," if $38; print " 39: $39," if $39; print " 40: $40," if $40; print " 41: $41," if $41; print " 42: $42," if $42; print " 43: $43," if $43; print " 44: $44," if $44; print " 45: $45," if $45; print " 46: $46," if $46; print " 47: $47," if $47; print " 48: $48," if $48; print " 49: $49," if $49; print " 50: $50," if $50; print " 51: $51," if $51; print " 52: $52," if $52; print " 53: $53," if $53; print " 54: $54," if $54; print " 55: $55," if $55; print " 56: $56," if $56; print " 57: $57," if $57; print " 58: $58," if $58; print " 59: $59," if $59; print " 60: $60," if $60; print " 61: $61," if $61; print " 62: $62," if $62; print " 63: $63," if $63; print " 64: $64," if $64; print " 65: $65," if $65; print " 66: $66," if $66; print " 67: $67," if $67; print " 68: $68," if $68; print " 69: $69," if $69; print " 70: $70," if $70; print " 71: $71," if $71; print " 72: $72," if $72; print " 73: $73," if $73; print " 74: $74," if $74; print " 75: $75," if $75; print " 76: $76," if $76; print " 77: $77," if $77; print " 78: $78," if $78; print " 79: $79," if $79; print " 80: $80," if $80; print " 81: $81," if $81; print " 82: $82," if $82; print " 83: $83," if $83; print " 84: $84" if $84; print "\n";
+  }
+  #
   my $etmsg1=$1;
-  my $http_urilen=$2 if $2;
-  my $http_method2=0;
-  my $http_methodnocase3=0;
-  print "brut4: $_\n" if $debug1;
-  #print "here4: 1: $1, 2: $2, 3: $3, 4: $4, 5: $5, 6: $6, 7: $7, 8: $8, 9: $9, 10: $10, 11: $11, 12: $12, 13: $13, 14: $14, 15: $15, 16: $16, 17: $17, 18: $18, 19: $19, 20: $20, 21: $21, 22: $22, 23: $23, 24: $24, 25: $25, 26: $26, 27: $27, 28: $28, 29: $29, 30: $30, 31: $31, 32: $32, 33: $33, 34: $34, 35: $35, 36: $36, 37: $37, $38, $39, 40: $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, 50: $50, $51, $52, $53, 54: $54, $55, $56, $57, $58, 59: $59\n" if $debug1;
-
-     $http_method2=$3 if $3;
-     $http_methodnocase3=$4 if $4;
-  my $http_header03=$5 if $5;		# 4
+  my $http_urilen4=$2 if $2;
+  #
+     $http_method4=$3 if $3;
+     $http_methodnocase4=$4 if $4;
+  #
+  my $http_header03=$5 if $5;		# old 5
   my $http_headerfast5=$6 if $6;
-  my $http_headernocase5=$7 if $7;	# 5
-  my $http_headerfast9=$10 if $10;
-  my $http_headernocase8=$11 if $11;	# 8
-  my $http_uri08=$14 if $14;		# 11
-  my $http_urifast14=$15 if $15;
-  my $http_urinocase12=$16 if $16;	# 12
-  my $http_urifast18=$19 if $19;
-  my $http_urinocase15=$20 if $20;	# 15
-  my $http_header13=$23 if $23;		# 18
-  my $http_headerfast23=$24 if $24;
-  my $http_headernocase19=$25 if $25;	# 19
-  my $distance14=$26 if defined($26);	# 20
-  my $distance15=$27 if defined($27);	# 21
-  my $http_headerfast27=$28 if $28;
-  my $http_headernocase22=$29 if $29;	# 22
-  my $distance16=$30 if defined($30);	# 23
-  my $distance17=$31 if defined($31);	# 24
-  my $http_uri18=$32 if $32;		# 25
-  my $http_urifast32=$33 if $33;
-  my $http_urinocase25=$34 if $34;	# 26
-  my $distance19=$35 if defined($35);	# 27
-  my $distance20=$36 if defined($36);	# 28
-  my $http_urifast36=$37 if $37;
-  my $http_urinocase28=$38 if $38;	# 29
-  my $distance21=$39 if defined($39);	# 30
-  my $distance22=$40 if defined($40);	# 31
-  my $http_header23=$41 if $41;		# 32
-  my $http_headerfast41=$42 if $42;
-  my $http_headernocase32=$43 if $43;	# 33
-  my $distance24=$44 if defined($44);	# 34
-  my $distance25=$45 if defined($45);	# 35
-  my $http_headerfast45=$46 if $46;
-  my $http_headernocase35=$47 if $47;	# 36
-  my $distance26=$48 if defined($48);	# 37
-  my $distance27=$49 if defined($49);	# 38
-  my $http_uri28=$50 if $50;		# 39
-  my $http_urifast50=$51 if $51;
-  my $http_urinocase39=$52 if $52;	# 40
-  my $distance29=$53 if defined($53);	# 41
-  my $distance30=$54 if defined($54);	# 42
-  my $http_urifast54=$55 if $55;
-  my $http_urinocase42=$56 if $56;	# 43
-  my $distance31=$57 if defined($57);	# 44
-  my $distance32=$58 if defined($58);	# 45
-  my $pcre_uri33=$59 if $59;		# 46
-  my $pcre_agent34=$60 if $60;		# 47
+  my $http_headernocase5=$7 if $7;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  my $http_headerfast9=$12 if $12;
+  my $http_headernocase8=$13 if $13;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_uri08=$18 if $18;		# old 14
+  my $http_urifast14=$19 if $19;
+  my $http_urinocase12=$20 if $20;
+     $http_urioffset=$21 if $21;
+     $http_uridepth=$22 if $22;
+  # distance
+  # distance
+  my $http_urifast18=$25 if $25;
+  my $http_urinocase15=$26 if $26;
+     $http_urioffset=$27 if $27;
+     $http_uridepth=$28 if $28;
+  # distance
+  # distance
+  #
+  my $http_header13=$31 if $31;		# old 23
+  my $http_headerfast23=$32 if $32;
+  my $http_headernocase19=$33 if $33;
+  # offset/depth
+  # offset/depth
+  my $distance14=$36 if defined($36);
+  my $distance15=$37 if defined($37);
+  my $http_headerfast27=$38 if $38;
+  my $http_headernocase22=$39 if $39;
+  # offset/depth
+  # offset/depth
+  my $distance16=$42 if defined($42);
+  my $distance17=$43 if defined($43);
+  #
+  my $http_uri18=$44 if $44;		# old 32
+  my $http_urifast32=$45 if $45;
+  my $http_urinocase25=$46 if $46;
+  # offset/depth
+  # offset/depth
+  my $distance19=$49 if defined($49);
+  my $distance20=$50 if defined($50);
+  my $http_urifast36=$51 if $51;
+  my $http_urinocase28=$52 if $52;
+  # offset/depth
+  # offset/depth
+  my $distance21=$55 if defined($55);
+  my $distance22=$56 if defined($56);
+  #
+  my $http_header23=$57 if $57;		# old 41
+  my $http_headerfast41=$58 if $58;
+  my $http_headernocase32=$59 if $59;
+  # offset/depth
+  # offset/depth
+  my $distance24=$62 if defined($62);
+  my $distance25=$63 if defined($63);
+  my $http_headerfast45=$64 if $64;
+  my $http_headernocase35=$65 if $65;
+  # offset/depth
+  # offset/depth
+  my $distance26=$68 if defined($68);
+  my $distance27=$69 if defined($69);
+  #
+  my $http_uri28=$70 if $70;		# old 50
+  my $http_urifast50=$71 if $71;
+  my $http_urinocase39=$72 if $72;
+  # offset/depth
+  # offset/depth
+  my $distance29=$75 if defined($75);
+  my $distance30=$76 if defined($76);
+  my $http_urifast54=$77 if $77;
+  my $http_urinocase42=$78 if $78;
+  # offset/depth
+  # offset/depth
+  my $distance31=$81 if defined($81);
+  my $distance32=$82 if defined($82);
+  #
+  my $pcre_uri33=$83 if $83;		# old 59
+  #
+  my $pcre_agent34=$84 if $84;		# old 60
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -2250,88 +2461,89 @@ foreach $_ ( @fileemergingthreats )
   if( $http_uri08_length >= $http_uri18_length && $http_uri08_length >= $http_uri28_length )
   { $httpuricourt=$http_uri08; }
   elsif( $http_uri18_length >= $http_uri08_length && $http_uri18_length >= $http_uri28_length )
-  { $httpuricourt=$http_uri18; }
+  { $httpuricourt=$http_uri18; $http_urioffset=0; $http_uridepth=0; }
   elsif( $http_uri28_length >= $http_uri08_length && $http_uri28_length >= $http_uri18_length )
-  { $httpuricourt=$http_uri28; }
+  { $httpuricourt=$http_uri28; $http_urioffset=0; $http_uridepth=0; }
 
-  $http_header03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header03; # (
-  $http_header03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header03; # )
-  $http_header03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header03; # *
-  $http_header03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header03; # +
-  $http_header03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header03; # -
-  $http_header03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header03; # .
-  $http_header03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header03; # /
-  $http_header03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header03; # ?
-  $http_header03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header03; # [
-  $http_header03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header03; # ]
-  #$http_header03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header03; # ^
-  $http_header03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header03; # {
-  $http_header03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header03; # }
-  $http_uri08 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri08; # (
-  $http_uri08 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri08; # )
-  $http_uri08 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri08; # *
-  $http_uri08 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri08; # +
-  $http_uri08 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri08; # -
-  $http_uri08 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri08; # .
-  $http_uri08 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri08; # /
-  $http_uri08 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri08; # ?
-  $http_uri08 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri08; # [
-  $http_uri08 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri08; # ]
-  $http_uri08 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri08; # ^
-  $http_uri08 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri08; # {
-  $http_uri08 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri08; # }
-  $http_header13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header13; # (
-  $http_header13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header13; # )
-  $http_header13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header13; # *
-  $http_header13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header13; # +
-  $http_header13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header13; # -
-  $http_header13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header13; # .
-  $http_header13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header13; # /
-  $http_header13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header13; # ?
-  $http_header13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header13; # [
-  $http_header13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header13; # ]
-  #$http_header13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header13; # ^
-  $http_header13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header13; # {
-  $http_header13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header13; # }
-  $http_uri18 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri18; # (
-  $http_uri18 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri18; # )
-  $http_uri18 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri18; # *
-  $http_uri18 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri18; # +
-  $http_uri18 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri18; # -
-  $http_uri18 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri18; # .
-  $http_uri18 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri18; # /
-  $http_uri18 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri18; # ?
-  $http_uri18 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri18; # [
-  $http_uri18 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri18; # ]
-  $http_uri18 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri18; # ^
-  $http_uri18 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri18; # {
-  $http_uri18 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri18; # }
-  $http_header23 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header23; # (
-  $http_header23 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header23; # )
-  $http_header23 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header23; # *
-  $http_header23 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header23; # +
-  $http_header23 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header23; # -
-  $http_header23 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header23; # .
-  $http_header23 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header23; # /
-  $http_header23 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header23; # ?
-  $http_header23 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header23; # [
-  $http_header23 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header23; # ]
-  #$http_header23 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header23; # ^
-  $http_header23 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header23; # {
-  $http_header23 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header23; # }
-  $http_uri28 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri28; # (
-  $http_uri28 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri28; # )
-  $http_uri28 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri28; # *
-  $http_uri28 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri28; # +
-  $http_uri28 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri28; # -
-  $http_uri28 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri28; # .
-  $http_uri28 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri28; # /
-  $http_uri28 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri28; # ?
-  $http_uri28 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri28; # [
-  $http_uri28 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri28; # ]
-  $http_uri28 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri28; # ^
-  $http_uri28 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri28; # {
-  $http_uri28 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri28; # }
+  # need escape special char before compare with pcre
+  $http_header03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header03 && $pcre_agent34; # (
+  $http_header03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header03 && $pcre_agent34; # )
+  $http_header03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header03 && $pcre_agent34; # *
+  $http_header03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header03 && $pcre_agent34; # +
+  $http_header03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header03 && $pcre_agent34; # -
+  $http_header03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header03 && $pcre_agent34; # .
+  $http_header03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header03 && $pcre_agent34; # /
+  $http_header03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header03 && $pcre_agent34; # ?
+  $http_header03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header03 && $pcre_agent34; # [
+  $http_header03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header03 && $pcre_agent34; # ]
+  #$http_header03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header03 && $pcre_agent34; # ^
+  $http_header03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header03 && $pcre_agent34; # {
+  $http_header03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header03 && $pcre_agent34; # }
+  $http_uri08 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri08 && $pcre_uri33; # (
+  $http_uri08 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri08 && $pcre_uri33; # )
+  $http_uri08 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri08 && $pcre_uri33; # *
+  $http_uri08 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri08 && $pcre_uri33; # +
+  $http_uri08 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri08 && $pcre_uri33; # -
+  $http_uri08 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri08 && $pcre_uri33; # .
+  $http_uri08 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri08 && $pcre_uri33; # /
+  $http_uri08 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri08 && $pcre_uri33; # ?
+  $http_uri08 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri08 && $pcre_uri33; # [
+  $http_uri08 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri08 && $pcre_uri33; # ]
+  $http_uri08 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri08 && $pcre_uri33; # ^
+  $http_uri08 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri08 && $pcre_uri33; # {
+  $http_uri08 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri08 && $pcre_uri33; # }
+  $http_header13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header13 && $pcre_agent34; # (
+  $http_header13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header13 && $pcre_agent34; # )
+  $http_header13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header13 && $pcre_agent34; # *
+  $http_header13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header13 && $pcre_agent34; # +
+  $http_header13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header13 && $pcre_agent34; # -
+  $http_header13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header13 && $pcre_agent34; # .
+  $http_header13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header13 && $pcre_agent34; # /
+  $http_header13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header13 && $pcre_agent34; # ?
+  $http_header13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header13 && $pcre_agent34; # [
+  $http_header13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header13 && $pcre_agent34; # ]
+  #$http_header13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header13 && $pcre_agent34; # ^
+  $http_header13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header13 && $pcre_agent34; # {
+  $http_header13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header13 && $pcre_agent34; # }
+  $http_uri18 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri18 && $pcre_uri33; # (
+  $http_uri18 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri18 && $pcre_uri33; # )
+  $http_uri18 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri18 && $pcre_uri33; # *
+  $http_uri18 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri18 && $pcre_uri33; # +
+  $http_uri18 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri18 && $pcre_uri33; # -
+  $http_uri18 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri18 && $pcre_uri33; # .
+  $http_uri18 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri18 && $pcre_uri33; # /
+  $http_uri18 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri18 && $pcre_uri33; # ?
+  $http_uri18 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri18 && $pcre_uri33; # [
+  $http_uri18 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri18 && $pcre_uri33; # ]
+  $http_uri18 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri18 && $pcre_uri33; # ^
+  $http_uri18 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri18 && $pcre_uri33; # {
+  $http_uri18 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri18 && $pcre_uri33; # }
+  $http_header23 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header23 && $pcre_agent34; # (
+  $http_header23 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header23 && $pcre_agent34; # )
+  $http_header23 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header23 && $pcre_agent34; # *
+  $http_header23 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header23 && $pcre_agent34; # +
+  $http_header23 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header23 && $pcre_agent34; # -
+  $http_header23 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header23 && $pcre_agent34; # .
+  $http_header23 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header23 && $pcre_agent34; # /
+  $http_header23 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header23 && $pcre_agent34; # ?
+  $http_header23 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header23 && $pcre_agent34; # [
+  $http_header23 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header23 && $pcre_agent34; # ]
+  #$http_header23 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header23 && $pcre_agent34; # ^
+  $http_header23 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header23 && $pcre_agent34; # {
+  $http_header23 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header23 && $pcre_agent34; # }
+  $http_uri28 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri28 && $pcre_uri33; # (
+  $http_uri28 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri28 && $pcre_uri33; # )
+  $http_uri28 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri28 && $pcre_uri33; # *
+  $http_uri28 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri28 && $pcre_uri33; # +
+  $http_uri28 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri28 && $pcre_uri33; # -
+  $http_uri28 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri28 && $pcre_uri33; # .
+  $http_uri28 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri28 && $pcre_uri33; # /
+  $http_uri28 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri28 && $pcre_uri33; # ?
+  $http_uri28 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri28 && $pcre_uri33; # [
+  $http_uri28 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri28 && $pcre_uri33; # ]
+  $http_uri28 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri28 && $pcre_uri33; # ^
+  $http_uri28 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri28 && $pcre_uri33; # {
+  $http_uri28 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri28 && $pcre_uri33; # }
   #$pcre_uri33 =~ s/(?<!\x5C)\x24//g         if $pcre_uri33; # $
   #$pcre_agent34 =~ s/(?<!\x5C)\x24//g         if $pcre_agent34; # $
 
@@ -2381,6 +2593,7 @@ foreach $_ ( @fileemergingthreats )
   my @tableauuri1;
 
      if( $http_header03 && $http_header03 =~ s/\QUser\-Agent\x3A\x20\E(?!$)/^/i ) { }
+  elsif( $http_header03 && $http_header03 =~ s/\QUser-Agent\x3A\x20\E(?!$)/^/i ) { }
   elsif( $http_header03 && $http_header03 =~ s/\QUser\-Agent\x3A\x20\E$/^/i ) { undef($http_header03) }
   elsif( $http_header03 && $http_header03 =~ s/\QUser\-Agent\x3A \E(?!$)/^/i ) { }
   elsif( $http_header03 && $http_header03 =~  /\QUser\-Agent\x3A \E$/i ) { undef($http_header03) }
@@ -2400,6 +2613,7 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header03 && $http_header03 =~  /\QUser-Agent\:\E$/i ) { undef($http_header03) }
   #$http_header03 =~ s/\Q\x0D\x0A\E/\$/i if $http_header03; # http_header, \x0D\x0A
      if( $http_header13 && $http_header13 =~ s/\QUser\-Agent\x3A\x20\E(?!$)/^/i ) { }
+  elsif( $http_header13 && $http_header13 =~ s/\QUser-Agent\x3A\x20\E(?!$)/^/i ) { }
   elsif( $http_header13 && $http_header13 =~ s/\QUser\-Agent\x3A\x20\E$/^/i ) { undef($http_header13) }
   elsif( $http_header13 && $http_header13 =~ s/\QUser\-Agent\x3A \E(?!$)/^/i ) { }
   elsif( $http_header13 && $http_header13 =~  /\QUser\-Agent\x3A \E$/i ) { undef($http_header13) }
@@ -2419,6 +2633,7 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header13 && $http_header13 =~  /\QUser-Agent\:\E$/i ) { undef($http_header13) }
   #$http_header13 =~ s/\Q\x0D\x0A\E/\$/i if $http_header13; # http_header, \x0D\x0A
      if( $http_header23 && $http_header23 =~ s/\QUser\-Agent\x3A\x20\E(?!$)/^/i ) { }
+  elsif( $http_header23 && $http_header23 =~ s/\QUser-Agent\x3A\x20\E(?!$)/^/i ) { }
   elsif( $http_header23 && $http_header23 =~ s/\QUser\-Agent\x3A\x20\E$/^/i ) { undef($http_header23) }
   elsif( $http_header23 && $http_header23 =~ s/\QUser\-Agent\x3A \E(?!$)/^/i ) { }
   elsif( $http_header23 && $http_header23 =~  /\QUser\-Agent\x3A \E$/i ) { undef($http_header23) }
@@ -2438,6 +2653,7 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header23 && $http_header23 =~  /\QUser-Agent\:\E$/i ) { undef($http_header23) }
   #$http_header23 =~ s/\Q\x0D\x0A\E/\$/i if $http_header23; # http_header, \x0D\x0A
   $pcre_agent34 =~ s/\Q^User\-Agent\x3A\x20\E/^/i if $pcre_agent34;
+  $pcre_agent34 =~ s/\Q^User-Agent\x3A\x20\E/^/i if $pcre_agent34;
   $pcre_agent34 =~ s/\Q^User\-Agent\x3A \E/^/i if $pcre_agent34;
   $pcre_agent34 =~ s/\QUser\-Agent\x3A\x20\E/^/i if $pcre_agent34;
   $pcre_agent34 =~ s/\QUser\-Agent\x3A \E/^/i if $pcre_agent34;
@@ -2487,6 +2703,20 @@ foreach $_ ( @fileemergingthreats )
   elsif( $http_header23 && $http_header23 =~ s/\Q^Host\x3A \E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header23; undef $http_header23 }
   elsif( $http_header23 && $http_header23 =~ s/\QHost\x3A\x20\E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header23; undef $http_header23 }
   elsif( $http_header23 && $http_header23 =~ s/\QHost\x3A \E/^/i ) { $http_host03 =~ s/\Q\x0D\x0A\E/\$/i; $pcrehost = $http_header23; undef $http_header23 }
+
+  $pcrereferer =~ s/(?<!\x5C)\x28/\x5C\x28/g if $pcrereferer; # (
+  $pcrereferer =~ s/(?<!\x5C)\x29/\x5C\x29/g if $pcrereferer; # )
+  $pcrereferer =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $pcrereferer; # *
+  $pcrereferer =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $pcrereferer; # +
+  $pcrereferer =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $pcrereferer; # -
+  $pcrereferer =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $pcrereferer; # .
+  $pcrereferer =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $pcrereferer; # /
+  $pcrereferer =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $pcrereferer; # ?
+  $pcrereferer =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $pcrereferer; # [
+  $pcrereferer =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $pcrereferer; # ]
+  #$pcrereferer =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $pcrereferer; # ^
+  $pcrereferer =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $pcrereferer; # {
+  $pcrereferer =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $pcrereferer; # }
 
   if( $pcrereferer !~ /\\x/ && $pcrereferer =~ /^\^/ && $pcrereferer !~ /^\^\\\-\$$/ )
   {
@@ -2852,23 +3082,41 @@ foreach $_ ( @fileemergingthreats )
    }
   }
 
-  print "httpuricourt4: $etmsg1, ".lc($httpuricourt)."\n" if $debug1 && $httpuricourt;
+  # check again if pcre need escape
+  $httppcreagent =~ s/(?<!\x5C)\x28/\x5C\x28/g if $httppcreagent; # (
+  $httppcreagent =~ s/(?<!\x5C)\x29/\x5C\x29/g if $httppcreagent; # )
+  $httppcreagent =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $httppcreagent; # *
+  $httppcreagent =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $httppcreagent; # +
+  $httppcreagent =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $httppcreagent; # -
+  $httppcreagent =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $httppcreagent; # .
+  $httppcreagent =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $httppcreagent; # /
+  $httppcreagent =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $httppcreagent; # ?
+  $httppcreagent =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $httppcreagent; # [
+  $httppcreagent =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $httppcreagent; # ]
+  #$httppcreagent =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $httppcreagent; # ^
+  $httppcreagent =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $httppcreagent; # {
+  $httppcreagent =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $httppcreagent; # }
+
+  print "httpuricourt4: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong4: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
   print "tableaupcreuri4: $etmsg1, $abc1, $abc1_nocase\n" if $debug1 && $abc1;
   print "tableaupcreagent4: $etmsg1, $httppcreagent, $httppcreagent_nocase\n" if $debug1 && $httppcreagent;
   print "httpagentshort4: $etmsg1, ".lc($httpagentshort)."\n" if $debug1 && $httpagentshort;
-  print "tableauhttpmethod4: $etmsg1, $http_method2, $http_methodnocase3\n" if $debug1 && $http_method2;
+  print "tableauhttpmethod4: $etmsg1, $http_method4, $http_methodnocase4\n" if $debug1 && $http_method4;
   print "httpreferer4: $etmsg1, ".lc($httpreferer)."\n" if $debug1 && $httpreferer;
   print "tableaupcrereferer4: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
   print "tableauhttpcookie4: $etmsg1, $http_cookie\n" if $debug1 && $http_cookie;
   print "tableaupcrecookie4: $etmsg1, $cookiepcre\n" if $debug1 && $cookiepcre;
   print "httphost4: $etmsg1, ".lc($httphost)."\n" if $debug1 && $httphost;
   print "tableaupcrehost4: $etmsg1, $pcrehost\n" if $debug1 && $pcrehost;
-  print "http_urilen4: $etmsg1, $http_urilen\n" if $debug1 && $http_urilen;
+  print "http_urilen4: $etmsg1, $http_urilen4\n" if $debug1 && $http_urilen4;
 
-  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth, $http_urioffset ] if $httpuricourt && $http_uridepth && $http_urioffset;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth ] if $httpuricourt && $http_uridepth && !$http_urioffset;
+  $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt && !$http_uridepth && !$http_urioffset;
+  #
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
-  $hash{$etmsg1}{httpmethod} = [ $http_method2, $http_methodnocase3 ] if $http_method2;
+  $hash{$etmsg1}{httpmethod} = [ $http_method4, $http_methodnocase4 ] if $http_method4;
   $hash{$etmsg1}{httpreferer} = [ lc($httpreferer) ] if $httpreferer;
   $hash{$etmsg1}{pcrereferer} = [ $pcrereferer ] if $pcrereferer;
   $hash{$etmsg1}{pcreuri} = [ $abc1, $abc1_nocase ] if $abc1;
@@ -2878,7 +3126,7 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{httpurilong} = [ @tableauuri1 ] if @tableauuri1;
   $hash{$etmsg1}{httphost} = [ lc($httphost) ] if $httphost;
   $hash{$etmsg1}{pcrehost} = [ $pcrehost ] if $pcrehost;
-  $hash{$etmsg1}{httpurilen} = [ $http_urilen ] if $http_urilen;
+  $hash{$etmsg1}{httpurilen} = [ $http_urilen4 ] if $http_urilen4;
 
   next;
  }
@@ -2887,53 +3135,81 @@ foreach $_ ( @fileemergingthreats )
  # begin http_uri followed by http_cookie
  elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$httpmethod)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)?\s*http_uri\;(?:$contentoptions1)?(?:$negateuricontent1)?)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)?\s*http_cookie\;(?:$contentoptions1)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:$pcreuri)?(?:$pcrecookie)?(?:$extracontentoptions)?$referencesidrev$/ )
  {
+  my $http_method5=0;
+  my $http_methodnocase5=0;
+  #
+  if( $debug1 ){
+   print "brut5: $_\n"; print "here5: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31" if $31; print "\n";
+  }
+  #
   my $etmsg1=$1;
-  my $http_method2=0;
-  my $http_methodnocase3=0;
-  print "brut5: $_\n" if $debug1;
-  #print "here5: $1, $2, $3, $4, 5: $5, $6, $7, $8, $9, 10: $10, 11: $11, $12, 13: $13, $14, 15: $15, $16, $17, $18, $19, 20: $20, $21, $22\n" if $debug1;
-
-     $http_method2=$2 if $2;
-     $http_methodnocase3=$3 if $3;
-  my $http_uri03=$4 if $4;
+  #
+     $http_method5=$2 if $2;
+     $http_methodnocase5=$3 if $3;
+  #
+  my $http_uri03=$4 if $4;		# old 4
+  # fastpattern
   my $http_urinocase5=$6 if $6;
-  my $http_urinocase8=$10 if $10;
-  my $http_cookie=$13 if $13;
-  my $http_cookienocase12=$15 if $15;
-  my $http_cookienocase15=$19 if $19;
-  my $pcre_uri13=$22 if $22;
-  my $cookiepcre=$23 if $23;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  # fastpattern
+  my $http_urinocase8=$12 if $12;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $http_cookie=$17 if $17;		# old 13
+  # fastpattern
+  my $http_cookienocase12=$19 if $19;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  # fastpattern
+  my $http_cookienocase15=$25 if $25;
+  # offset/depth
+  # offset/depth
+  # distance
+  # distance
+  #
+  my $pcre_uri13=$30 if $30;		# old 22
+  #
+  my $cookiepcre=$31 if $31;		# old 23
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
      $httpuricourt=$http_uri03 if $http_uri03;
 
-  $http_uri03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri03; # (
-  $http_uri03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri03; # )
-  $http_uri03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri03; # *
-  $http_uri03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri03; # +
-  $http_uri03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri03; # -
-  $http_uri03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri03; # .
-  $http_uri03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri03; # /
-  $http_uri03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri03; # ?
-  $http_uri03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri03; # [
-  $http_uri03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri03; # ]
-  $http_uri03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri03; # ^
-  $http_uri03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri03; # {
-  $http_uri03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri03; # }
-  $http_cookie =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_cookie; # (
-  $http_cookie =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_cookie; # )
-  $http_cookie =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_cookie; # *
-  $http_cookie =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_cookie; # +
-  $http_cookie =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_cookie; # -
-  $http_cookie =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_cookie; # .
-  $http_cookie =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_cookie; # /
-  $http_cookie =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_cookie; # ?
-  $http_cookie =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_cookie; # [
-  $http_cookie =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_cookie; # ]
-  $http_cookie =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_cookie; # ^
-  $http_cookie =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_cookie; # {
-  $http_cookie =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_cookie; # }
+  # need escape special char before compare with pcre
+  $http_uri03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_uri03 && $pcre_uri13; # (
+  $http_uri03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_uri03 && $pcre_uri13; # )
+  $http_uri03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_uri03 && $pcre_uri13; # *
+  $http_uri03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_uri03 && $pcre_uri13; # +
+  $http_uri03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_uri03 && $pcre_uri13; # -
+  $http_uri03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_uri03 && $pcre_uri13; # .
+  $http_uri03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_uri03 && $pcre_uri13; # /
+  $http_uri03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_uri03 && $pcre_uri13; # ?
+  $http_uri03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_uri03 && $pcre_uri13; # [
+  $http_uri03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_uri03 && $pcre_uri13; # ]
+  $http_uri03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_uri03 && $pcre_uri13; # ^
+  $http_uri03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_uri03 && $pcre_uri13; # {
+  $http_uri03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_uri03 && $pcre_uri13; # }
+  $http_cookie =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_cookie && $cookiepcre; # (
+  $http_cookie =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_cookie && $cookiepcre; # )
+  $http_cookie =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_cookie && $cookiepcre; # *
+  $http_cookie =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_cookie && $cookiepcre; # +
+  $http_cookie =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_cookie && $cookiepcre; # -
+  $http_cookie =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_cookie && $cookiepcre; # .
+  $http_cookie =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_cookie && $cookiepcre; # /
+  $http_cookie =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_cookie && $cookiepcre; # ?
+  $http_cookie =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_cookie && $cookiepcre; # [
+  $http_cookie =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_cookie && $cookiepcre; # ]
+  $http_cookie =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_cookie && $cookiepcre; # ^
+  $http_cookie =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_cookie && $cookiepcre; # {
+  $http_cookie =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_cookie && $cookiepcre; # }
   #$pcre_uri13 =~ s/(?<!\x5C)\x24//g         if $pcre_uri13; # $
 #perl -e '$abc1="1|20 21|2|22 24|3";while($abc1=~/(?<!\x5C)\|(.*?)\|/g){$toto1=$1;print "abc1:$abc1\ntoto1:$toto1\n";$toto1=~s/\s*([0-9A-Fa-f]{2})/\\x$1/g; print "$toto1\n"; $abc1=~s/(?<!\x5C)\|.*?\|/$toto1/}; print "final:$abc1\n"'
   while($http_uri03 && $http_uri03=~/(?<!\x5C)\|(.*?)\|/g) {
@@ -2971,11 +3247,11 @@ foreach $_ ( @fileemergingthreats )
    $http_cookie =~ s/\\//g;
   }
 
-  if( $pcre_uri13 )
-  {
-   $pcre_uri13 =~ s/^\^\\\//\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\\//i;
-   $pcre_uri13 =~ s/^\^\\x2F/\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\x2F/i;
-  }
+  #if( $pcre_uri13 )
+  #{
+  # $pcre_uri13 =~ s/^\^\\\//\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\\//i;
+  # $pcre_uri13 =~ s/^\^\\x2F/\^(?:https?\\\:\\\/\\\/)?[^\\\/]*?\\x2F/i;
+  #}
 
   if( $pcre_uri13 && $http_uri03 && $pcre_uri13=~/\Q$http_uri03\E/i ) {
    undef $http_uri03;
@@ -3015,15 +3291,13 @@ foreach $_ ( @fileemergingthreats )
 
   print "httpuricourt5: $etmsg1, ".lc($httpuricourt)."\n" if $debug1 && $httpuricourt;
   print "tableaupcreuri5: $etmsg1, $abc1, $abc1_nocase\n" if $debug1 && $abc1;
-  print "tableauhttpmethod5: $etmsg1, $http_method2, $http_methodnocase3\n" if $debug1 && $http_method2;
+  print "tableauhttpmethod5: $etmsg1, $http_method5, $http_methodnocase5\n" if $debug1 && $http_method5;
   print "tableauhttpcookie5: $etmsg1, $http_cookie, $http_cookie_nocase\n" if $debug1 && $http_cookie;
   print "tableaupcrecookie5: $etmsg1, $cookiepcre, $http_cookie_nocase\n" if $debug1 && $cookiepcre;
 
-  #push( @tableauuricontent, ("$etmsg1", "$http_method2", "$http_methodnocase3" , "", "",    , "", "$abc1", "$abc1_nocase") ) if $abc1;
-
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
   $hash{$etmsg1}{pcreuri} = [ $abc1, $abc1_nocase ] if $abc1;
-  $hash{$etmsg1}{httpmethod} = [ $http_method2, $http_methodnocase3 ] if $http_method2;
+  $hash{$etmsg1}{httpmethod} = [ $http_method5, $http_methodnocase5 ] if $http_method5;
   $hash{$etmsg1}{httpcookie} = [ $http_cookie, $http_cookie_nocase ] if $http_cookie;
   $hash{$etmsg1}{pcrecookie} = [ $cookiepcre, $http_cookie_nocase ] if $cookiepcre;
 
@@ -3036,11 +3310,11 @@ foreach $_ ( @fileemergingthreats )
 #alert ip any any -> 103.13.232.232 any (msg:"Shadowserver C&C List: 103.13.232.232"; reference:url,rules.emergingthreats.net/fwrules/emerging-Block-IPs.txt; classtype:misc-activity; sid:9990001; rev:1;)
  elsif( $_=~ /^\s*alert\s+ip\s+\S+\s+\S+\s+\-\>\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;[^\n]*?$referencesidrev$/ )
  {
+  print "brut6: $_\n" if $debug1;
+  #
   my $etmsg1=$2;
   my $remote_ip=$1;
-  print "brut6: $_\n" if $debug1;
-  #print "here6: $1, $2, $3, $4, 5: $5, $6, $7, $8, $9, 10: $10, 11: $11, $12, 13: $13, $14, 15: $15, $16, $17, $18, $19, 20: $20, $21, $22\n" if $debug1;
-
+  #
   print "remoteip6: $etmsg1, $remote_ip\n" if $debug1 && $remote_ip;
 
   $hash{$etmsg1}{remoteip} = [ $remote_ip ] if $remote_ip;
@@ -3052,7 +3326,7 @@ foreach $_ ( @fileemergingthreats )
 
  else
  {
-  print "erreur parsing signature: $_\n" if $debug1;
+  print "signature parsing error: $_\n" if $debug1;
   next;
  }
 }
@@ -3170,6 +3444,7 @@ my @threads = map threads->create(sub {
   print "passage dans BlueCoat 1 sans http_method regexp.\n" if $debug2;
  }
 
+
 # log proxy BlueCoat avec http_method:
 # Fields: (syslog header)           date       time  time-taken c-ip cs-username cs-auth-group cs-categories sc-filter-result sc-status cs(Referer) s-action rs(Content-Type) cs-method cs-uri-scheme cs-host cs-uri-port cs-uri-path cs-uri-query cs(User-Agent) s-ip sc-bytes cs-bytes x-virus-id
 # Jan 10 11:10:21 10.0.0.1/10.0.0.1 2013-10-10 11:10:21 68 10.0.0.2 - - \"bc_rules\" CATEGORY 304 http://referer.com TCP_HIT image/gif GET http www.test.com 80 /path.gif - \"Mozilla/4.0\" 10.0.0.3 370 665 -
@@ -3188,6 +3463,7 @@ my @threads = map threads->create(sub {
   elsif( $13 eq "-" && $9 eq "tcp" ) { $client_http_uri="$12" }
   print "passage dans BlueCoat 2 avec http_method regexp.\n" if $debug2;
  }
+
 
 # Format MAIN SGOS v6.5.5.5
 #Fields: date time time-taken c-ip sc-status s-action sc-bytes cs-bytes cs-method cs-uri-scheme cs-host cs-uri-port cs-uri-path cs-uri-query cs-username cs-auth-group s-supplier-name rs(Content-Type) cs(Referer) cs(User-Agent) sc-filter-result cs-categories x-virus-id s-ip
@@ -3208,6 +3484,7 @@ my @threads = map threads->create(sub {
  }
 
 
+# BlueCoat:
 #Feb 12 10:55:06 10.33.243.105 #Fields: date time s-ip sc-filter-result sc-status s-action x-timestamp-unix-utc cs-bytes sc-bytes x-cs-http-version x-sc-http-status cs-protocol cs-host c-uri cs-uri-port cs-uri-path cs-categories c-ip c-port s-port cs-userdn x-cs-user-authorization-name s-icap-info s-icap-status cs(User-Agent) s-connect-type cs-method x-cs-http-method rs(Content-Type) r-ip
 #Mar  6 12:07:41 host 2015-03-06 11:07:42 10.0.0.1 OBSERVED 200 TCP_NC_MISS 1425640062 748 8347 1.1 200 http www.test.com http://www.test.com/wiki?abc 80 /wiki "cat" 10.1.1.1 50455 8080 cn=x,o=y cn=a,o=y - ICAP "UA" Direct GET GET text/html;%20charset=UTF-8 1.1.1.1
 #Mar  6 12:07:41 host 2015-03-06 11:07:42 10.0.0.1 OBSERVED 0 TUNNELED 1425640062 1874 818 - - ssl google.com ssl://google.com:443/ 443 / "cat1;cat2" 10.1.1.1 62243 8000 - - - ICAP - Direct unknown - - 1.1.1.1
@@ -3221,6 +3498,30 @@ my @threads = map threads->create(sub {
   if( $10 && $10 eq "-" ) { $client_http_useragent="-" }
   if( $11 && $11 eq "-" ) { undef $server_remote_ip }
   print "passage dans BlueCoat 4 regexp.\n" if $debug2;
+ }
+
+
+# BlueCoat Bernie:
+#"date","time","time_taken","c_ip", "cs_username","cs_auth_group","x_exception_id","sc_filter_result","cs_categories",    "cs_referer","sc_status","s_action", "cs_method","rs_content_type", "cs_uri_scheme","cs_host",     "cs_uri_port","cs_uri_path",                "cs_uri_query","cs_uri_extension","cs_user_agent",  "s_ip",  "sc_bytes","cs_bytes","x_virus_id","x_bluecoat_application_name","x_bluecoat_application_operation"
+#2015-04-08 17:48:33 215 123.321.0.1 username     Domain\OU       -                OBSERVED           "Audio/Video Clips" -            200         TCP_NC_MISS POST        application/x-fcs  http            111.123.24.100 80            /idle/GTKmdz02ySLKCn_Z/153489 -              -                  "Shockwave Flash" 10.0.0.5 1930       220        -            "none"                        "none"
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s\S+\s\S+\s\S+\s\\\"[^\"]*?\\\"\s(?:\\\"([^\"]*?)\\\"|(\-))\s(\d+)\s\S+\s(\S+)\s\S+\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s(\S+)\s\S+\s(?:\\\"([^\"]*?)\\\"|(\-))\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s\d+\s\d+\s\-\s\\\"[^\"]*?\\\"\s\\\"[^\"]*?\\\"\s?\\?r?$/) {
+  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $server_remote_ip=$4; $client_username=$5; $client_http_referer=$6; $http_reply_code=$8; $client_http_method=$9; $client_http_host=$11; $client_http_uri="$13$14"; $client_http_useragent=$15; $client_hostname_ip=$17;
+  unless($6) {$client_http_referer=$7}
+  if( $14 eq "-" && $10 ne "tcp" ) { $client_http_uri="$13" }
+  elsif( $14 eq "-" && $10 eq "tcp" ) { $client_http_uri="$13" }
+  print "passage dans BlueCoat 5 regexp.\n" if $debug2;
+ }
+
+
+# BlueCoat:
+#Fields: date time time-taken c-ip sc-status s-action sc-bytes cs-bytes cs-method cs-uri-scheme cs-host cs-uri-port cs-uri-path cs-uri-query cs-username cs-auth-group s-hierarchy s-supplier-name rs(Content-Type) cs(Referer) cs(User-Agent) sc-filter-result cs-categories x-virus-id s-ip
+#<syslog> 2015-05-31 00:00:08 7 192.168.0.1 200 TCP_NC_MISS 265 400 HEAD http test.com 80 /index.php ?a=b user group - test.com application/php http://referer.com/a.php?d=e "Mozilla/4.0" OBSERVED "Category" - 192.168.0.2
+#<syslog> 2015-05-31 00:00:10 62304 192.168.0.1 200 TCP_TUNNELED 4398 4626 CONNECT tcp test.com 443 / - user group - 192.168.0.2 - - "Mozilla/4.0" OBSERVED "Category" - 192.168.0.2
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(?:[a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2}\s(\S+)\s)?(?:\S+\:\s)?(\d{4}\-\d{2}\-\d{2})\s(\d{2}\:\d{2}\:\d{2})\s\d+\s(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(\S+)\s\S+\s\d+\s\d+\s(\S+)\s(\S+)\s(\S+)\s\d+\s(\S+)\s(\S+)\s(\S+)\s\S+\s\S+\s\S+\s\S+\s(\S+)\s(?:\\\"([^\"]*?)\\\"|(\-))\s\S+\s\\\"[^\"]*?\\\"\s\S+\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\\r)?$/) {
+  $server_hostname_ip=$1; $timestamp_central=$2." ".$3; $client_hostname_ip=$4; $http_reply_code=$5; $client_http_method=$6; $client_http_host=$8; $client_http_uri="$9$10"; $client_username=$11; $client_http_referer=$12; $client_http_useragent=$13; $client_hostname_ip=$14;
+  if( $10 eq "-" && $7 ne "tcp" ) { $client_http_uri="$9" }
+  elsif( $10 eq "-" && $7 eq "tcp" ) { $client_http_uri="$9" }
+  print "passage dans BlueCoat 6 regexp.\n" if $debug2;
  }
 
 
@@ -3256,15 +3557,33 @@ my @threads = map threads->create(sub {
   print "passage dans IIS default regexp.\n" if $debug2;
  }
 
+# WebSense:
+#Apr 27 10:10:10 10.0.0.1 vendor=Websense product=Security product_version=1.1.1 action=permitted severity=1 category=1 user="ou=a ou=b" src_host=10.0.0.2 src_port=1025 dst_host=www.google.com dst_ip=1.1.1.1 dst_port=80 bytes_out=1 bytes_in=1 http_response=200 http_method=GET http_content_type=- http_user_agent=user_agent http_proxy_status_code=200 reason=- disposition=1 policy=policy role=1 duration=1 url=http://www.google.com/ab
+#Apr 27 10:10:10 10.0.0.1 vendor=Websense product=Security product_version=1.1.1 action=permitted severity=1 category=1 user="ou=a ou=b" src_host=10.0.0.2 src_port=1025 dst_host=1.1.1.1 dst_ip=1.1.1.1 dst_port=80 bytes_out=1 bytes_in=1 http_response=200 http_method=GET http_content_type=- http_user_agent=user_agent http_proxy_status_code=200 reason=- disposition=1 policy=policy role=1 duration=1 url=http://1.1.1.1/ab
+#Apr 27 10:10:10 10.0.0.1 vendor=Websense product=Security product_version=1.1.1 action=blocked severity=7 category=1 user="ou=a ou=b" src_host=10.0.0.3 src_port=1026 dst_host=live.com dst_ip=1.1.1.2 dst_port=443 bytes_out=2 bytes_in=6 http_response=200 http_method=CONNECT http_content_type=- http_user_agent=Mozilla/5.0_(compatible;_MSIE_9.0;_Windows_NT_6.1;_WOW64;_Trident/5.0) http_proxy_status_code=200 reason=- disposition=1 policy=policy2 role=1 duration=1 url=https://live.com
+#Apr 27 10:10:10 10.0.0.1 vendor=Websense product=Security product_version=1.1.1 action=permitted severity=1 category=1 user="user" src_host=10.0.0.4 src_port=1027 dst_host=test.net dst_ip=1.1.1.3 dst_port=80 bytes_out=4 bytes_in=1 http_response=200 http_method=GET http_content_type=application/x-shockwave-flash http_user_agent=Mozilla/5.0_(compatible;_MSIE_9.0;_Windows_NT_6.1;_WOW64;_Trident/5.0) http_proxy_status_code=200 reason=- disposition=1 policy=policy role=1 duration=1 url=XXX://test.com/abc.html?def=ghi
+#
+# User-Agent without space
+# url NOT normalized
+# two http_reply_code
+#
+ #elsif ( $output_escape =~ /^(?:\<\d+\>)?([a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2})\s(\S+)\svendor=\S+ product=\S+ product_version=\S+ action=\S+ severity=\d+ category=\d+ user=\\\"([^\"]*?)\\\" src_host=(\S+) src_port=\d+ dst_host=(\S+) dst_ip=(\S+) dst_port=\d+ bytes_out=\d+ bytes_in=\d+ http_response=(\S+) http_method=(\S+) http_content_type=\S+ http_user_agent=(\S+) http_proxy_status_code=(\S+) reason=\S+ disposition=\d+ policy=\S+ role=\d+ duration=\d+ url=\w+\:\/\/[^\/]*?(\/\S*)?$/ ) {
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?([a-zA-Z]{3}\s+\d+\s+\d{2}\:\d{2}\:\d{2})\s(\S+)\svendor=\S+ product=\S+ product_version=\S+ action=\S+ severity=\d+ category=\d+ user=(?:\\\")?(.*?)(?:\\\")? src_host=(\S+) src_port=\d+ dst_host=(\S+) dst_ip=(\S+) dst_port=\d+ bytes_out=\d+ bytes_in=\d+ http_response=(\S+) http_method=(\S+) http_content_type=\S+ http_user_agent=(\S+) http_proxy_status_code=(\S+) reason=\S+ disposition=\d+ policy=\S+ role=\d+ duration=\d+ url=.*?\:\/\/[^\/]*?(\/\S*)?$/ ) {
+  $timestamp_central=$1; $server_hostname_ip=$2; $client_username=$3; $client_hostname_ip=$4; $client_http_host=$5; $server_remote_ip=$6; $http_reply_code=$7; $client_http_method=$8; $client_http_useragent=$9; $client_http_uri=$11;
+  print "passage dans WebSense default regexp.\n" if $debug2;
+  $client_http_useragent =~ s/\_/ /g;
+  if( $http_reply_code eq "0" ){ $http_reply_code=$10 }
+ }
+
 
  else {
   if( $syslogsock )
   {
-   print $syslogsock "$host etplc: aucun parser ne correspond au motif !!! $output_escape\n";
+   print $syslogsock "$host etplc: parser not exist with your logs !!! $output_escape\n";
   }
   else
   {
-   print "aucun parser ne correspond au motif !!! $output_escape\n";
+   print "parser not exist with your logs !!! $output_escape\n";
   }
  }
 
@@ -3356,9 +3675,19 @@ my @threads = map threads->create(sub {
 
     elsif( $clef eq "httpuricourt" && !$jump )
     {
-     if( $hash{$etmsg}{"httpuricourt"}[0] && $client_http_uri && index(lc($client_http_uri), $hash{$etmsg}{"httpuricourt"}[0]) != -1 )
+     if( $hash{$etmsg}{"httpuricourt"}[0] && $hash{$etmsg}{"httpuricourt"}[1] && $hash{$etmsg}{"httpuricourt"}[2] && $client_http_uri && index(lc($client_http_uri), $hash{$etmsg}{"httpuricourt"}[0]) == $hash{$etmsg}{"httpuricourt"}[2] )
      {
-      print "ici2: ",$hash{$etmsg}{"httpuricourt"}[0],"\n" if $debug2 && $hash{$etmsg}{"httpuricourt"}[0];
+      print "ici2a: ",$hash{$etmsg}{"httpuricourt"}[0],", depth:",$hash{$etmsg}{"httpuricourt"}[1],", offset:",$hash{$etmsg}{"httpuricourt"}[2],"\n" if $debug2 && $hash{$etmsg}{"httpuricourt"}[0] && $hash{$etmsg}{"httpuricourt"}[1] && $hash{$etmsg}{"httpuricourt"}[2];
+      $founduricourt1=1;
+     }
+     elsif( $hash{$etmsg}{"httpuricourt"}[0] && $hash{$etmsg}{"httpuricourt"}[1] && !$hash{$etmsg}{"httpuricourt"}[2] && $client_http_uri && index(lc($client_http_uri), $hash{$etmsg}{"httpuricourt"}[0]) == 0 )
+     {
+      print "ici2b: ",$hash{$etmsg}{"httpuricourt"}[0],", depth:",$hash{$etmsg}{"httpuricourt"}[1],"\n" if $debug2 && $hash{$etmsg}{"httpuricourt"}[0] && $hash{$etmsg}{"httpuricourt"}[1];
+      $founduricourt1=1;
+     }
+     elsif( $hash{$etmsg}{"httpuricourt"}[0] && !$hash{$etmsg}{"httpuricourt"}[1] && $client_http_uri && index(lc($client_http_uri), $hash{$etmsg}{"httpuricourt"}[0]) != -1 )
+     {
+      print "ici2c: ",$hash{$etmsg}{"httpuricourt"}[0],"\n" if $debug2 && $hash{$etmsg}{"httpuricourt"}[0];
       $founduricourt1=1;
      }
      elsif( $hash{$etmsg}{"httpuricourt"}[0] )
@@ -3393,7 +3722,7 @@ my @threads = map threads->create(sub {
      }
      elsif( $hash{$etmsg}{"httpurilen"}[0] )
      {
-      print "urilen not found15: jump (",$hash{$etmsg}{"httpurilen"}[0]," and ",length($client_http_uri),")\n" if $debug2;
+      print "urilen not found15: jump (",$hash{$etmsg}{"httpurilen"}[0]," and ",length($client_http_uri),")\n" if $debug2 && $client_http_uri;
       $jump=1;
       last;
      }
@@ -3675,6 +4004,8 @@ my @threads = map threads->create(sub {
 
      #print $syslogsock ", eturishort: ",$hash{$etmsg}{"httpuricourt"}[0] if $founduricourt1;
      $tutu=$hash{$etmsg}{"httpuricourt"}[0];
+     $tutu .= " depth:".$hash{$etmsg}{"httpuricourt"}[1] if $hash{$etmsg}{"httpuricourt"}[1];
+     $tutu .= " offset:".$hash{$etmsg}{"httpuricourt"}[2] if $hash{$etmsg}{"httpuricourt"}[2];
      print $syslogsock ", eturishort: $tutu" if $founduricourt1;
 
      #print $syslogsock ", eturilong: ",$hash{$etmsg}{"httpurilong"}[0] if $foundurilong1;
@@ -3746,7 +4077,7 @@ my @threads = map threads->create(sub {
      print "server_remote_ip: $server_remote_ip, " if $server_remote_ip;
      print "etmsg: $etmsg" if $etmsg;
      print ", etmethod: ",$hash{$etmsg}{"httpmethod"}[0] if $foundmethod;
-     print ", eturishort: ",$hash{$etmsg}{"httpuricourt"}[0] if $founduricourt1;
+     print ", eturishort: ",$hash{$etmsg}{"httpuricourt"}[0] if $founduricourt1; print " depth:",$hash{$etmsg}{"httpuricourt"}[1] if $founduricourt1 && $hash{$etmsg}{"httpuricourt"}[1]; print " offset:",$hash{$etmsg}{"httpuricourt"}[2] if $founduricourt1 && $hash{$etmsg}{"httpuricourt"}[2];
      print ", eturilong: ",$hash{$etmsg}{"httpurilong"}[0] if $foundurilong1;
      if( $foundurilongdistance1 ){ print ", eturilongdistance: "; print "$_ ",foreach values $hash{$etmsg}{"httpurilongdistance"} }
      print ", etagent: ",$hash{$etmsg}{"httpagentshort"}[0] if $foundagent;
@@ -3780,6 +4111,5 @@ $queue->enqueue( (undef) x $max_procs );
 # terminate.
 $_->join() for @threads;
 
-close FILEEMERGINGTHREATS;
 exit(0);
 
