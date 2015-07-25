@@ -19,6 +19,7 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+# 25jul2015: fix pcre http header ()
 #  9jul2015: major rewrite and add uri depth/offset signature parser
 # 30jun2015: remove legacy code
 # 10jun2015: again enhance BlueCoat parser format
@@ -1217,6 +1218,34 @@ foreach $_ ( @fileemergingthreats )
   #$abc1= "$http_uri63" if $http_uri63 && !$http_uri03 && !$http_uri08 && !$http_uri13 && !$http_uri18 && !$http_uri23 && !$http_uri28 && !$http_uri33 && !$http_uri38 && !$http_uri43 && !$http_uri48 && !$http_uri53 && !$http_uri58 && !$pcre_uri73;
   $abc1= "$pcre_uri73" if $pcre_uri73 && !$http_uri03 && !$http_uri08 && !$http_uri13 && !$http_uri18 && !$http_uri23 && !$http_uri28 && !$http_uri33 && !$http_uri38 && !$http_uri43 && !$http_uri48 && !$http_uri53 && !$http_uri58 && !$http_uri63;
 
+  # check again if header content need escape
+  $http_header68 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header68; # (
+  $http_header68 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header68; # )
+  $http_header68 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header68; # *
+  $http_header68 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header68; # +
+  $http_header68 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header68; # -
+  $http_header68 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header68; # .
+  $http_header68 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header68; # /
+  $http_header68 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header68; # ?
+  $http_header68 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header68; # [
+  $http_header68 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header68; # ]
+  #$http_header68 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header68; # ^
+  $http_header68 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header68; # {
+  $http_header68 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header68; # }
+  $http_header121 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header121; # (
+  $http_header121 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header121; # )
+  $http_header121 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header121; # *
+  $http_header121 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header121; # +
+  $http_header121 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header121; # -
+  $http_header121 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header121; # .
+  $http_header121 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header121; # /
+  $http_header121 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header121; # ?
+  $http_header121 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header121; # [
+  $http_header121 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header121; # ]
+  #$http_header121 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header121; # ^
+  $http_header121 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header121; # {
+  $http_header121 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header121; # }
+
   # one header
   $httppcreagent= "$http_header68" if $http_header68 && !$http_header121 && !$pcre_agent79 && $http_header68 =~ /(?:\\|\^|\$)/;
   $httppcreagent= "$http_header121" if $http_header121 && !$http_header68 && !$pcre_agent79 && $http_header121 =~ /(?:\\|\^|\$)/;
@@ -1477,21 +1506,6 @@ foreach $_ ( @fileemergingthreats )
     undef $tempopcreagent;
    }
   }
-
-  # check again if pcre need escape
-  $httppcreagent =~ s/(?<!\x5C)\x28/\x5C\x28/g if $httppcreagent; # (
-  $httppcreagent =~ s/(?<!\x5C)\x29/\x5C\x29/g if $httppcreagent; # )
-  $httppcreagent =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $httppcreagent; # *
-  $httppcreagent =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $httppcreagent; # +
-  $httppcreagent =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $httppcreagent; # -
-  $httppcreagent =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $httppcreagent; # .
-  $httppcreagent =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $httppcreagent; # /
-  $httppcreagent =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $httppcreagent; # ?
-  $httppcreagent =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $httppcreagent; # [
-  $httppcreagent =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $httppcreagent; # ]
-  #$httppcreagent =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $httppcreagent; # ^
-  $httppcreagent =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $httppcreagent; # {
-  $httppcreagent =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $httppcreagent; # }
 
   print "httpuricourt1: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong1: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
@@ -2253,6 +2267,34 @@ foreach $_ ( @fileemergingthreats )
    print "ok trouvé grep18c\n" if $debug1;
   }
 
+  # check again if header content need escape
+  $http_header08 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header08; # (
+  $http_header08 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header08; # )
+  $http_header08 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header08; # *
+  $http_header08 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header08; # +
+  $http_header08 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header08; # -
+  $http_header08 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header08; # .
+  $http_header08 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header08; # /
+  $http_header08 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header08; # ?
+  $http_header08 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header08; # [
+  $http_header08 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header08; # ]
+  #$http_header08 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header08; # ^
+  $http_header08 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header08; # {
+  $http_header08 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header08; # }
+  $http_header18 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header18; # (
+  $http_header18 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header18; # )
+  $http_header18 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header18; # *
+  $http_header18 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header18; # +
+  $http_header18 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header18; # -
+  $http_header18 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header18; # .
+  $http_header18 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header18; # /
+  $http_header18 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header18; # ?
+  $http_header18 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header18; # [
+  $http_header18 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header18; # ]
+  #$http_header18 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header18; # ^
+  $http_header18 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header18; # {
+  $http_header18 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header18; # }
+
   # one uri
   #$abc1= "$http_uri03" if $http_uri03 && !$http_uri13 && !$pcre_uri23;
   #$abc1= "$http_uri13" if $http_uri13 && !$http_uri03 && !$pcre_uri23;
@@ -2306,21 +2348,6 @@ foreach $_ ( @fileemergingthreats )
      $httppcreagent_nocase=$http_headernocase26 if $http_headernocase26;
      $httppcreagent_nocase=$http_headerfast36   if $http_headerfast36;
      $httppcreagent_nocase=$http_headernocase29 if $http_headernocase29;
-
-  # check again if pcre need escape
-  $httppcreagent =~ s/(?<!\x5C)\x28/\x5C\x28/g if $httppcreagent; # (
-  $httppcreagent =~ s/(?<!\x5C)\x29/\x5C\x29/g if $httppcreagent; # )
-  $httppcreagent =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $httppcreagent; # *
-  $httppcreagent =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $httppcreagent; # +
-  $httppcreagent =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $httppcreagent; # -
-  $httppcreagent =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $httppcreagent; # .
-  $httppcreagent =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $httppcreagent; # /
-  $httppcreagent =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $httppcreagent; # ?
-  $httppcreagent =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $httppcreagent; # [
-  $httppcreagent =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $httppcreagent; # ]
-  #$httppcreagent =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $httppcreagent; # ^
-  $httppcreagent =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $httppcreagent; # {
-  $httppcreagent =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $httppcreagent; # }
 
   print "httpuricourt3: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong3: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
