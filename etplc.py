@@ -18,6 +18,7 @@
 # Contact: rmkml@yahoo.fr
 
 # ChangeLog:
+# 26sep2015: fix httphost
 # 25apr2015: fix http user-agent short
 # 13apr2015: first urilen implementation
 # 23fev2015: rewrite to split http host and http uri for better performance + fix pcreagent and pcrereferer
@@ -2793,6 +2794,22 @@ def function_match_http_header( lineet ):
    http_header23 = re.sub( r'(?<!\^)Host\\x3A', r'^', http_header23, flags=re.I)
    pcrehost = http_header23
    http_header23 = ""
+
+ if pcrereferer and not re.search( r'\\x', pcrereferer ) and re.search( r'^\^', pcrereferer ) and not re.search( r'^\^\\\-\$$', pcrereferer ) and not re.search( r'\(\?\!', pcrereferer ):
+  pcrereferer=re.sub( r'\\', r'', pcrereferer )
+  pcrereferer=re.sub( r'^\^', r'', pcrereferer )
+  pcrereferer=re.sub( r'\$$', r'', pcrereferer )
+  httpreferer=pcrereferer
+  pcrereferer=0
+
+ # special pcre checking for host!
+ if pcrehost and not re.search( r'\\x', pcrehost ) and re.search( r'^\^', pcrehost ) and not re.search( r'^\^\\\-\$$', pcrehost ) and not re.search( r'\(', pcrehost ):
+  pcrehost=re.sub( r'\\', r'', pcrehost )
+  pcrehost=re.sub( r'^\^', r'', pcrehost )
+  pcrehost=re.sub( r'\$$', r'', pcrehost )
+  httphost=pcrehost
+  pcrehost=0
+
  if pcre_agent34:
   if re.search( r'\^Host\\x3A\\x20', pcre_agent34, re.I ):
    pcre_agent34 = re.sub( r'\^Host\\x3A\\x20', r'^', pcre_agent34, flags=re.I)
@@ -2820,21 +2837,6 @@ def function_match_http_header( lineet ):
    pcrehost = pcre_agent34
    pcre_agent34 = ""
  if pcrehost: pcrehost = re.sub(  r'(?!^)\\x0D\\x0A', r'$', pcrehost, flags=re.I)
-
- if pcrereferer and not re.search( r'\\x', pcrereferer ) and re.search( r'^\^', pcrereferer ) and not re.search( r'^\^\\\-\$$', pcrereferer ) and not re.search( r'\(\?\!', pcrereferer ):
-  pcrereferer=re.sub( r'\\', r'', pcrereferer )
-  pcrereferer=re.sub( r'^\^', r'', pcrereferer )
-  pcrereferer=re.sub( r'\$$', r'', pcrereferer )
-  httpreferer=pcrereferer
-  pcrereferer=0
-
- # special pcre checking for host!
- if pcrehost and not re.search( r'\\x', pcrehost ) and re.search( r'^\^', pcrehost ) and not re.search( r'^\^\\\-\$$', pcrehost ) and not re.search( r'\(', pcrehost ):
-  pcrehost=re.sub( r'\\', r'', pcrehost )
-  pcrehost=re.sub( r'^\^', r'', pcrehost )
-  pcrehost=re.sub( r'\$$', r'', pcrehost )
-  httphost=pcrehost
-  pcrehost=0
 
  if http_header03:
   if re.search( r'\\x0d\\x0aCookie\\x3A (?!$)', http_header03, re.I ):
