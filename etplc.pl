@@ -19,6 +19,7 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+#  5nov2015: fix pcre http User-Agent
 # 25jul2015: fix pcre http header ()
 #  9jul2015: major rewrite and add uri depth/offset signature parser
 # 30jun2015: remove legacy code
@@ -2984,9 +2985,57 @@ foreach $_ ( @fileemergingthreats )
   }
 
   # one header
-  $httppcreagent= "$http_header03" if $http_header03 && !$http_header13 && !$http_header23 && !$pcre_agent34;
-  $httppcreagent= "$http_header13" if $http_header13 && !$http_header03 && !$http_header23 && !$pcre_agent34;
-  $httppcreagent= "$http_header23" if $http_header23 && !$http_header03 && !$http_header13 && !$pcre_agent34;
+  if( $http_header03 && !$http_header13 && !$http_header23 && !$pcre_agent34 )
+  {
+   $http_header03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header03; # (
+   $http_header03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header03; # )
+   $http_header03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header03; # *
+   $http_header03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header03; # +
+   $http_header03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header03; # -
+   $http_header03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header03; # .
+   $http_header03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header03; # /
+   $http_header03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header03; # ?
+   $http_header03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header03; # [
+   $http_header03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header03; # ]
+   #$http_header03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header03; # ^
+   $http_header03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header03; # {
+   $http_header03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header03; # }
+   $httppcreagent= "$http_header03";
+  }
+  if( $http_header13 && !$http_header03 && !$http_header23 && !$pcre_agent34 )
+  {
+   $http_header13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header13; # (
+   $http_header13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header13; # )
+   $http_header13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header13; # *
+   $http_header13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header13; # +
+   $http_header13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header13; # -
+   $http_header13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header13; # .
+   $http_header13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header13; # /
+   $http_header13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header13; # ?
+   $http_header13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header13; # [
+   $http_header13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header13; # ]
+   #$http_header13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header13; # ^
+   $http_header13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header13; # {
+   $http_header13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header13; # }
+   $httppcreagent= "$http_header13";
+  }
+  if( $http_header23 && !$http_header03 && !$http_header13 && !$pcre_agent34 )
+  {
+   $http_header23 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header23; # (
+   $http_header23 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header23; # )
+   $http_header23 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header23; # *
+   $http_header23 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header23; # +
+   $http_header23 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header23; # -
+   $http_header23 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header23; # .
+   $http_header23 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header23; # /
+   $http_header23 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header23; # ?
+   $http_header23 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header23; # [
+   $http_header23 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header23; # ]
+   #$http_header23 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header23; # ^
+   $http_header23 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header23; # {
+   $http_header23 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header23; # }
+   $httppcreagent= "$http_header23";
+  }
   $httppcreagent= "$pcre_agent34" if $pcre_agent34 && !$http_header03 && !$http_header13 && !$http_header23;
   unless( $httppcreagent && ($httppcreagent =~/(?:\\|\^|\$)/) ) { $httppcreagent=0 }
 
@@ -2998,9 +3047,76 @@ foreach $_ ( @fileemergingthreats )
 
   # two headers
   if( (defined($distance14)||defined($distance15)||defined($distance16)||defined($distance17)) && !(defined($distance24)||defined($distance25)||defined($distance26)||defined($distance27)) ) {
+   # escape:
+   $http_header03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header03; # (
+   $http_header03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header03; # )
+   $http_header03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header03; # *
+   $http_header03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header03; # +
+   $http_header03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header03; # -
+   $http_header03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header03; # .
+   $http_header03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header03; # /
+   $http_header03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header03; # ?
+   $http_header03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header03; # [
+   $http_header03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header03; # ]
+   #$http_header03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header03; # ^
+   $http_header03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header03; # {
+   $http_header03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header03; # }
+   $http_header13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header13; # (
+   $http_header13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header13; # )
+   $http_header13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header13; # *
+   $http_header13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header13; # +
+   $http_header13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header13; # -
+   $http_header13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header13; # .
+   $http_header13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header13; # /
+   $http_header13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header13; # ?
+   $http_header13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header13; # [
+   $http_header13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header13; # ]
+   #$http_header13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header13; # ^
+   $http_header13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header13; # {
+   $http_header13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header13; # }
    $httppcreagent= "(?:$http_header03.*?$http_header13)" if $http_header03 && $http_header13 && !$http_header23 && !$pcre_agent34;
   }
   elsif( !(defined($distance14)||defined($distance15)||defined($distance16)||defined($distance17)) && !(defined($distance24)||defined($distance25)||defined($distance26)||defined($distance27)) ) {
+   # escape:
+   $http_header03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header03; # (
+   $http_header03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header03; # )
+   $http_header03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header03; # *
+   $http_header03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header03; # +
+   $http_header03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header03; # -
+   $http_header03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header03; # .
+   $http_header03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header03; # /
+   $http_header03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header03; # ?
+   $http_header03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header03; # [
+   $http_header03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header03; # ]
+   #$http_header03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header03; # ^
+   $http_header03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header03; # {
+   $http_header03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header03; # }
+   $http_header13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header13; # (
+   $http_header13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header13; # )
+   $http_header13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header13; # *
+   $http_header13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header13; # +
+   $http_header13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header13; # -
+   $http_header13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header13; # .
+   $http_header13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header13; # /
+   $http_header13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header13; # ?
+   $http_header13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header13; # [
+   $http_header13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header13; # ]
+   #$http_header13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header13; # ^
+   $http_header13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header13; # {
+   $http_header13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header13; # }
+   $http_header23 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header23; # (
+   $http_header23 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header23; # )
+   $http_header23 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header23; # *
+   $http_header23 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header23; # +
+   $http_header23 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header23; # -
+   $http_header23 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header23; # .
+   $http_header23 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header23; # /
+   $http_header23 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header23; # ?
+   $http_header23 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header23; # [
+   $http_header23 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header23; # ]
+   #$http_header23 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header23; # ^
+   $http_header23 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header23; # {
+   $http_header23 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header23; # }
    $httppcreagent= "(?:$http_header03.*?$http_header13|$http_header13.*?$http_header03)" if $http_header03 && $http_header13 && !$http_header23 && !$pcre_agent34;
    $httppcreagent= "(?:$http_header03.*?$http_header23|$http_header23.*?$http_header03)" if $http_header03 && $http_header23 && !$http_header13 && !$pcre_agent34;
    $httppcreagent= "(?:$http_header03.*?$pcre_agent34|$pcre_agent34.*?$http_header03)" if $http_header03 && $pcre_agent34 && !$http_header13 && !$http_header23;
@@ -3031,9 +3147,89 @@ foreach $_ ( @fileemergingthreats )
 
   # three headers
   if( (defined($distance14)||defined($distance15)||defined($distance16)||defined($distance17)) && (defined($distance24)||defined($distance25)||defined($distance26)||defined($distance27)) ) {
+   # escape:
+   $http_header03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header03; # (
+   $http_header03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header03; # )
+   $http_header03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header03; # *
+   $http_header03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header03; # +
+   $http_header03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header03; # -
+   $http_header03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header03; # .
+   $http_header03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header03; # /
+   $http_header03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header03; # ?
+   $http_header03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header03; # [
+   $http_header03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header03; # ]
+   #$http_header03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header03; # ^
+   $http_header03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header03; # {
+   $http_header03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header03; # }
+   $http_header13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header13; # (
+   $http_header13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header13; # )
+   $http_header13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header13; # *
+   $http_header13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header13; # +
+   $http_header13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header13; # -
+   $http_header13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header13; # .
+   $http_header13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header13; # /
+   $http_header13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header13; # ?
+   $http_header13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header13; # [
+   $http_header13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header13; # ]
+   #$http_header13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header13; # ^
+   $http_header13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header13; # {
+   $http_header13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header13; # }
+   $http_header23 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header23; # (
+   $http_header23 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header23; # )
+   $http_header23 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header23; # *
+   $http_header23 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header23; # +
+   $http_header23 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header23; # -
+   $http_header23 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header23; # .
+   $http_header23 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header23; # /
+   $http_header23 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header23; # ?
+   $http_header23 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header23; # [
+   $http_header23 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header23; # ]
+   #$http_header23 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header23; # ^
+   $http_header23 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header23; # {
+   $http_header23 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header23; # }
    $httppcreagent= "(?:$http_header03.*$http_header13.*$http_header23)" if $http_header03 && $http_header13 && $http_header23 && !$pcre_agent34;
   }
   elsif( !(defined($distance14)||defined($distance15)||defined($distance16)||defined($distance17)) && !(defined($distance24)||defined($distance25)||defined($distance26)||defined($distance27)) ) {
+   # escape:
+   $http_header03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header03; # (
+   $http_header03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header03; # )
+   $http_header03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header03; # *
+   $http_header03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header03; # +
+   $http_header03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header03; # -
+   $http_header03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header03; # .
+   $http_header03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header03; # /
+   $http_header03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header03; # ?
+   $http_header03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header03; # [
+   $http_header03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header03; # ]
+   #$http_header03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header03; # ^
+   $http_header03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header03; # {
+   $http_header03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header03; # }
+   $http_header13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header13; # (
+   $http_header13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header13; # )
+   $http_header13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header13; # *
+   $http_header13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header13; # +
+   $http_header13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header13; # -
+   $http_header13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header13; # .
+   $http_header13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header13; # /
+   $http_header13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header13; # ?
+   $http_header13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header13; # [
+   $http_header13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header13; # ]
+   #$http_header13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header13; # ^
+   $http_header13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header13; # {
+   $http_header13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header13; # }
+   $http_header23 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header23; # (
+   $http_header23 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header23; # )
+   $http_header23 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header23; # *
+   $http_header23 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header23; # +
+   $http_header23 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header23; # -
+   $http_header23 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header23; # .
+   $http_header23 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header23; # /
+   $http_header23 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header23; # ?
+   $http_header23 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header23; # [
+   $http_header23 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header23; # ]
+   #$http_header23 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header23; # ^
+   $http_header23 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header23; # {
+   $http_header23 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header23; # }
    $httppcreagent= "(?:$http_header03.*$http_header13.*$http_header23|$http_header03.*$http_header23.*$http_header13|$http_header23.*$http_header03.*$http_header13|$http_header23.*$http_header13.*$http_header03)" if $http_header03 && $http_header13 && $http_header23 && !$pcre_agent34;
    $httppcreagent= "(?:$http_header03.*$http_header13.*$pcre_agent34|$http_header03.*$pcre_agent34.*$http_header13|$pcre_agent34.*$http_header03.*$http_header13|$pcre_agent34.*$http_header13.*$http_header03)" if $http_header03 && $http_header13 && $pcre_agent34 && !$http_header23;
   }
@@ -3061,7 +3257,50 @@ foreach $_ ( @fileemergingthreats )
   }
 
   # four headers
-   $httppcreagent= "(?:$http_header03.*$http_header13.*$http_header23.*$pcre_agent34|$http_header03.*$http_header13.*$pcre_agent34.*$http_header23|$http_header03.*$http_header23.*$http_header13.*$pcre_agent34|$http_header03.*$http_header23.*$pcre_agent34.*$http_header13|$http_header13.*$http_header23.*$pcre_agent34.*$http_header03|$http_header13.*$http_header23.*$http_header03.*$pcre_agent34|$http_header13.*$http_header03.*$http_header23.*$pcre_agent34|$http_header13.*$http_header03.*$pcre_agent34.*$http_header23|$http_header23.*$http_header03.*$http_header13.*$pcre_agent34|$http_header23.*$http_header03.*$pcre_agent34.*$http_header13|$http_header23.*$http_header13.*$pcre_agent34.*$http_header03|$http_header23.*$http_header13.*$http_header03.*$pcre_agent34|$pcre_agent34.*$http_header03.*$http_header13.*$http_header23|$pcre_agent34.*$http_header03.*$http_header23.*$http_header13|$pcre_agent34.*$http_header23.*$http_header03.*$http_header13|$pcre_agent34.*$http_header23.*$http_header13.*$http_header03)" if $http_header03 && $http_header13 && $http_header23 && $pcre_agent34;
+   if( $http_header03 && $http_header13 && $http_header23 && $pcre_agent34 )
+   {
+    # escape:
+    $http_header03 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header03; # (
+    $http_header03 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header03; # )
+    $http_header03 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header03; # *
+    $http_header03 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header03; # +
+    $http_header03 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header03; # -
+    $http_header03 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header03; # .
+    $http_header03 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header03; # /
+    $http_header03 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header03; # ?
+    $http_header03 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header03; # [
+    $http_header03 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header03; # ]
+    #$http_header03 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header03; # ^
+    $http_header03 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header03; # {
+    $http_header03 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header03; # }
+    $http_header13 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header13; # (
+    $http_header13 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header13; # )
+    $http_header13 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header13; # *
+    $http_header13 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header13; # +
+    $http_header13 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header13; # -
+    $http_header13 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header13; # .
+    $http_header13 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header13; # /
+    $http_header13 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header13; # ?
+    $http_header13 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header13; # [
+    $http_header13 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header13; # ]
+    #$http_header13 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header13; # ^
+    $http_header13 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header13; # {
+    $http_header13 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header13; # }
+    $http_header23 =~ s/(?<!\x5C)\x28/\x5C\x28/g if $http_header23; # (
+    $http_header23 =~ s/(?<!\x5C)\x29/\x5C\x29/g if $http_header23; # )
+    $http_header23 =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $http_header23; # *
+    $http_header23 =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $http_header23; # +
+    $http_header23 =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $http_header23; # -
+    $http_header23 =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $http_header23; # .
+    $http_header23 =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $http_header23; # /
+    $http_header23 =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $http_header23; # ?
+    $http_header23 =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $http_header23; # [
+    $http_header23 =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $http_header23; # ]
+    #$http_header23 =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $http_header23; # ^
+    $http_header23 =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $http_header23; # {
+    $http_header23 =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $http_header23; # }
+    $httppcreagent= "(?:$http_header03.*$http_header13.*$http_header23.*$pcre_agent34|$http_header03.*$http_header13.*$pcre_agent34.*$http_header23|$http_header03.*$http_header23.*$http_header13.*$pcre_agent34|$http_header03.*$http_header23.*$pcre_agent34.*$http_header13|$http_header13.*$http_header23.*$pcre_agent34.*$http_header03|$http_header13.*$http_header23.*$http_header03.*$pcre_agent34|$http_header13.*$http_header03.*$http_header23.*$pcre_agent34|$http_header13.*$http_header03.*$pcre_agent34.*$http_header23|$http_header23.*$http_header03.*$http_header13.*$pcre_agent34|$http_header23.*$http_header03.*$pcre_agent34.*$http_header13|$http_header23.*$http_header13.*$pcre_agent34.*$http_header03|$http_header23.*$http_header13.*$http_header03.*$pcre_agent34|$pcre_agent34.*$http_header03.*$http_header13.*$http_header23|$pcre_agent34.*$http_header03.*$http_header23.*$http_header13|$pcre_agent34.*$http_header23.*$http_header03.*$http_header13|$pcre_agent34.*$http_header23.*$http_header13.*$http_header03)";
+   }
 
   # four uri
    $abc1= "(?:$http_uri08.*$http_uri18.*$http_uri28.*$pcre_uri33|$http_uri08.*$http_uri18.*$pcre_uri33.*$http_uri28|$http_uri08.*$http_uri28.*$http_uri18.*$pcre_uri33|$http_uri08.*$http_uri28.*$pcre_uri33.*$http_uri18|$http_uri18.*$http_uri28.*$pcre_uri33.*$http_uri08|$http_uri18.*$http_uri28.*$http_uri08.*$pcre_uri33|$http_uri18.*$http_uri08.*$http_uri28.*$pcre_uri33|$http_uri18.*$http_uri08.*$pcre_uri33.*$http_uri28|$http_uri28.*$http_uri08.*$http_uri18.*$pcre_uri33|$http_uri28.*$http_uri08.*$pcre_uri33.*$http_uri18|$http_uri28.*$http_uri18.*$pcre_uri33.*$http_uri08|$http_uri28.*$http_uri18.*$http_uri08.*$pcre_uri33|$pcre_uri33.*$http_uri08.*$http_uri18.*$http_uri28|$pcre_uri33.*$http_uri08.*$http_uri28.*$http_uri18|$pcre_uri33.*$http_uri28.*$http_uri08.*$http_uri18|$pcre_uri33.*$http_uri28.*$http_uri18.*$http_uri08)" if $http_uri08 && $http_uri18 && $http_uri28 && $pcre_uri33;
@@ -3108,21 +3347,6 @@ foreach $_ ( @fileemergingthreats )
     undef $tempopcreagent;
    }
   }
-
-  # check again if pcre need escape
-  $httppcreagent =~ s/(?<!\x5C)\x28/\x5C\x28/g if $httppcreagent; # (
-  $httppcreagent =~ s/(?<!\x5C)\x29/\x5C\x29/g if $httppcreagent; # )
-  $httppcreagent =~ s/(?<!\x5C)\x2A/\x5C\x2A/g if $httppcreagent; # *
-  $httppcreagent =~ s/(?<!\x5C)\x2B/\x5C\x2B/g if $httppcreagent; # +
-  $httppcreagent =~ s/(?<!\x5C)\x2D/\x5C\x2D/g if $httppcreagent; # -
-  $httppcreagent =~ s/(?<!\x5C)\x2E/\x5C\x2E/g if $httppcreagent; # .
-  $httppcreagent =~ s/(?<!\x5C)\x2F/\x5C\x2F/g if $httppcreagent; # /
-  $httppcreagent =~ s/(?<!\x5C)\x3F/\x5C\x3F/g if $httppcreagent; # ?
-  $httppcreagent =~ s/(?<!\x5C)\x5B/\x5C\x5B/g if $httppcreagent; # [
-  $httppcreagent =~ s/(?<!\x5C)\x5D/\x5C\x5D/g if $httppcreagent; # ]
-  #$httppcreagent =~ s/(?<!\x5C)\x5E/\x5C\x5E/g if $httppcreagent; # ^
-  $httppcreagent =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $httppcreagent; # {
-  $httppcreagent =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $httppcreagent; # }
 
   print "httpuricourt4: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong4: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
