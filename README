@@ -8,7 +8,9 @@ Follow project on http://etplc.org or http://sourceforge.net/projects/etplc/ or 
 
 Native Perl version and new version based on Python (v3 and v2) script.
 
-New Alpha purpose Elasticsearch "Connector" with ETPLC project here.
+The new initial version Splunk "Connector" with ETPLC project here.
+
+The Elasticsearch "Connector" with ETPLC project here.
 
 How it's work:
 
