@@ -19,6 +19,7 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+# 12jul2016: fix sending to syslog
 #  5nov2015: fix pcre http User-Agent
 # 25jul2015: fix pcre http header ()
 #  9jul2015: major rewrite and add uri depth/offset signature parser
@@ -4233,82 +4234,127 @@ my @threads = map threads->create(sub {
     if( $syslogsock && ($foundmethod or $founduricourt1 or $foundurilong1 or $foundurilen or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost) )
     {
      lock($queue);
+     my $sendtosyslog;
      my $tutu='';
-     print $syslogsock "$host etplc: ok trouvé: ";
-     print $syslogsock "timestamp: $timestamp_central, " if $timestamp_central;
-     print $syslogsock "server_hostname_ip: $server_hostname_ip, " if $server_hostname_ip;
-     print $syslogsock "client_hostname_ip: $client_hostname_ip, " if $client_hostname_ip;
-     print $syslogsock "client_username: $client_username, " if $client_username;
-     print $syslogsock "client_http_method: $client_http_method, " if $client_http_method;
-     print $syslogsock "client_http_uri: $client_http_uri, " if $client_http_uri;
-     print $syslogsock "client_http_useragent: $client_http_useragent, " if $client_http_useragent;
-     print $syslogsock "client_http_referer: $client_http_referer, " if $client_http_referer;
-     print $syslogsock "client_http_cookie: $client_http_cookie, " if $client_http_cookie;
-     print $syslogsock "client_http_host: $client_http_host, " if $client_http_host;
-     print $syslogsock "http_reply_code: $http_reply_code, " if $http_reply_code;
-     print $syslogsock "server_remote_ip: $server_remote_ip, " if $server_remote_ip;
-     print $syslogsock "etmsg: $etmsg" if $etmsg;
+     #print $syslogsock "$host etplc: ok trouvé: ";
+     $sendtosyslog .= "$host etplc: ok trouvé: ";
+
+     #print $syslogsock "timestamp: $timestamp_central, " if $timestamp_central;
+     $sendtosyslog .= "timestamp: $timestamp_central, " if $timestamp_central;
+
+     #print $syslogsock "server_hostname_ip: $server_hostname_ip, " if $server_hostname_ip;
+     $sendtosyslog .= "server_hostname_ip: $server_hostname_ip, " if $server_hostname_ip;
+
+     #print $syslogsock "client_hostname_ip: $client_hostname_ip, " if $client_hostname_ip;
+     $sendtosyslog .= "client_hostname_ip: $client_hostname_ip, " if $client_hostname_ip;
+
+     #print $syslogsock "client_username: $client_username, " if $client_username;
+     $sendtosyslog .= "client_username: $client_username, " if $client_username;
+
+     #print $syslogsock "client_http_method: $client_http_method, " if $client_http_method;
+     $sendtosyslog .= "client_http_method: $client_http_method, " if $client_http_method;
+
+     #print $syslogsock "client_http_uri: $client_http_uri, " if $client_http_uri;
+     $sendtosyslog .= "client_http_uri: $client_http_uri, " if $client_http_uri;
+
+     #print $syslogsock "client_http_useragent: $client_http_useragent, " if $client_http_useragent;
+     $sendtosyslog .= "client_http_useragent: $client_http_useragent, " if $client_http_useragent;
+
+     #print $syslogsock "client_http_referer: $client_http_referer, " if $client_http_referer;
+     $sendtosyslog .= "client_http_referer: $client_http_referer, " if $client_http_referer;
+
+     #print $syslogsock "client_http_cookie: $client_http_cookie, " if $client_http_cookie;
+     $sendtosyslog .= "client_http_cookie: $client_http_cookie, " if $client_http_cookie;
+
+     #print $syslogsock "client_http_host: $client_http_host, " if $client_http_host;
+     $sendtosyslog .= "client_http_host: $client_http_host, " if $client_http_host;
+
+     #print $syslogsock "http_reply_code: $http_reply_code, " if $http_reply_code;
+     $sendtosyslog .= "http_reply_code: $http_reply_code, " if $http_reply_code;
+
+     #print $syslogsock "server_remote_ip: $server_remote_ip, " if $server_remote_ip;
+     $sendtosyslog .= "server_remote_ip: $server_remote_ip, " if $server_remote_ip;
+
+     #print $syslogsock "etmsg: $etmsg" if $etmsg;
+     $sendtosyslog .= "etmsg: $etmsg" if $etmsg;
 
      #print $syslogsock ", etmethod: ",$hash{$etmsg}{"httpmethod"}[0] if $foundmethod;
      $tutu=$hash{$etmsg}{"httpmethod"}[0];
-     print $syslogsock ", etmethod: $tutu" if $foundmethod;
+     #print $syslogsock ", etmethod: $tutu" if $foundmethod;
+     $sendtosyslog .= ", etmethod: $tutu" if $foundmethod;
 
      #print $syslogsock ", eturishort: ",$hash{$etmsg}{"httpuricourt"}[0] if $founduricourt1;
      $tutu=$hash{$etmsg}{"httpuricourt"}[0];
      $tutu .= " depth:".$hash{$etmsg}{"httpuricourt"}[1] if $hash{$etmsg}{"httpuricourt"}[1];
      $tutu .= " offset:".$hash{$etmsg}{"httpuricourt"}[2] if $hash{$etmsg}{"httpuricourt"}[2];
-     print $syslogsock ", eturishort: $tutu" if $founduricourt1;
+     #print $syslogsock ", eturishort: $tutu" if $founduricourt1;
+     $sendtosyslog .= ", eturishort: $tutu" if $founduricourt1;
 
      #print $syslogsock ", eturilong: ",$hash{$etmsg}{"httpurilong"}[0] if $foundurilong1;
      $tutu=$hash{$etmsg}{"httpurilong"}[0];
-     print $syslogsock ", eturilong: $tutu" if $foundurilong1;
+     #print $syslogsock ", eturilong: $tutu" if $foundurilong1;
+     $sendtosyslog .= ", eturilong: $tutu" if $foundurilong1;
 
      #if( $foundurilongdistance1 ){ print $syslogsock ", eturilongdistance: "; print $syslogsock "$_ ",foreach values $hash{$etmsg}{"httpurilongdistance"} }
-     if( $foundurilongdistance1 ){ print $syslogsock ", eturilongdistance: "; $tutu.= "$_ ",foreach values $hash{$etmsg}{"httpurilongdistance"}; print $syslogsock $tutu; }
+     #if( $foundurilongdistance1 ){ print $syslogsock ", eturilongdistance: "; $tutu.= "$_ ",foreach values $hash{$etmsg}{"httpurilongdistance"}; print $syslogsock $tutu; }
+     if( $foundurilongdistance1 ){ $sendtosyslog .= ", eturilongdistance: "; $tutu.= "$_ ",foreach values $hash{$etmsg}{"httpurilongdistance"}; $sendtosyslog .= $tutu; }
 
      #print $syslogsock ", etagent: ",$hash{$etmsg}{"httpagentshort"}[0] if $foundagent;
      $tutu=$hash{$etmsg}{"httpagentshort"}[0];
-     print $syslogsock ", etagent: $tutu" if $foundagent;
+     #print $syslogsock ", etagent: $tutu" if $foundagent;
+     $sendtosyslog .= ", etagent: $tutu" if $foundagent;
 
      #print $syslogsock ", etreferer: ",$hash{$etmsg}{"httpreferer"}[0] if $foundreferer;
      $tutu=$hash{$etmsg}{"httpreferer"}[0];
-     print $syslogsock ", etreferer: $tutu" if $foundreferer;
+     #print $syslogsock ", etreferer: $tutu" if $foundreferer;
+     $sendtosyslog .= ", etreferer: $tutu" if $foundreferer;
 
      #print $syslogsock ", etcookie: ",$hash{$etmsg}{"httpcookie"}[0] if $foundcookie;
      $tutu=$hash{$etmsg}{"httpcookie"}[0];
-     print $syslogsock ", etcookie: $tutu" if $foundcookie;
+     #print $syslogsock ", etcookie: $tutu" if $foundcookie;
+     $sendtosyslog .= ", etcookie: $tutu" if $foundcookie;
 
      #print $syslogsock ", etpcrereferer: ",$hash{$etmsg}{"pcrereferer"}[0] if $foundpcrereferer;
      $tutu=$hash{$etmsg}{"pcrereferer"}[0];
-     print $syslogsock ", etpcrereferer: $tutu" if $foundpcrereferer;
+     #print $syslogsock ", etpcrereferer: $tutu" if $foundpcrereferer;
+     $sendtosyslog .= ", etpcrereferer: $tutu" if $foundpcrereferer;
 
      #print $syslogsock ", etpcreagent: ",$hash{$etmsg}{"pcreagent"}[0] if $foundpcreagent;
      $tutu=$hash{$etmsg}{"pcreagent"}[0];
-     print $syslogsock ", etpcreagent: $tutu" if $foundpcreagent;
+     #print $syslogsock ", etpcreagent: $tutu" if $foundpcreagent;
+     $sendtosyslog .= ", etpcreagent: $tutu" if $foundpcreagent;
 
      #print $syslogsock ", etpcrecookie: ",$hash{$etmsg}{"pcrecookie"}[0] if $foundpcrecookie;
      $tutu=$hash{$etmsg}{"pcrecookie"}[0];
-     print $syslogsock ", etpcrecookie: $tutu" if $foundpcrecookie;
+     #print $syslogsock ", etpcrecookie: $tutu" if $foundpcrecookie;
+     $sendtosyslog .= ", etpcrecookie: $tutu" if $foundpcrecookie;
 
      #print $syslogsock ", etpcreuri: ",$hash{$etmsg}{"pcreuri"}[0] if $foundpcreuri;
      $tutu=$hash{$etmsg}{"pcreuri"}[0];
-     print $syslogsock ", etpcreuri: $tutu" if $foundpcreuri;
+     #print $syslogsock ", etpcreuri: $tutu" if $foundpcreuri;
+     $sendtosyslog .= ", etpcreuri: $tutu" if $foundpcreuri;
 
      #print $syslogsock ", etremoteip: ",$hash{$etmsg}{"remoteip"}[0] if $foundremoteip;
      $tutu=$hash{$etmsg}{"remoteip"}[0];
-     print $syslogsock ", etremoteip: $tutu" if $foundremoteip;
+     #print $syslogsock ", etremoteip: $tutu" if $foundremoteip;
+     $sendtosyslog .= ", etremoteip: $tutu" if $foundremoteip;
 
      #print $syslogsock ", ethost: ",$hash{$etmsg}{"httphost"}[0] if $foundhost;
      $tutu=$hash{$etmsg}{"httphost"}[0];
-     print $syslogsock ", ethost: $tutu" if $foundhost;
+     #print $syslogsock ", ethost: $tutu" if $foundhost;
+     $sendtosyslog .= ", ethost: $tutu" if $foundhost;
 
-     print $syslogsock ", ethost: ",$hash{$etmsg}{"httpurilen"}[0] if $foundurilen;
+     #print $syslogsock ", eturilen: ",$hash{$etmsg}{"httpurilen"}[0] if $foundurilen;
+     $tutu=$hash{$etmsg}{"httpurilen"}[0];
+     $sendtosyslog .= ", eturilen: $tutu" if $foundurilen;
 
      #print $syslogsock ", etpcrehost: ",$hash{$etmsg}{"pcrehost"}[0] if $foundpcrehost;
      $tutu=$hash{$etmsg}{"pcrehost"}[0];
-     print $syslogsock ", etpcrehost: $tutu" if $foundpcrehost;
+     #print $syslogsock ", etpcrehost: $tutu" if $foundpcrehost;
+     $sendtosyslog .= ", etpcrehost: $tutu" if $foundpcrehost;
 
-     print $syslogsock "\n";
+     print $syslogsock $sendtosyslog if $syslogsock;
+     #print $syslogsock "\n";
     }
     elsif( $foundmethod or $founduricourt1 or $foundurilong1 or $foundurilen or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost)
     {
