@@ -19,6 +19,7 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+# 13jul2016: added syslog header for TMG/ForeFront parser
 # 12jul2016: fix sending to syslog
 #  5nov2015: fix pcre http User-Agent
 # 25jul2015: fix pcre http header ()
@@ -3669,15 +3670,17 @@ my @threads = map threads->create(sub {
 #10.0.0.1	DOMAINE\USERNAME	Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)	2013-06-21	00:00:13	SERVERNAME	-	-	10.0.0.2	8085	0	1695	1532	SSL-tunnel	-	www.marketscore.com:443	Upstream	0
 #10.0.0.1	DOMAINE\USERNAME	Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)	2013-06-21	00:00:24	SERVERNAME	-	www.marketscore.com	10.0.0.2	443	31	938	448	SSL-tunnel	CONNECT	-	-	12210
 
-# elsif ( $output_escape =~ /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)/) {
- elsif ( $output_escape =~ /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(?:\w+\:\/\/)?([^\/]*?)(\/.*?)?(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)/) {
-#  $client_hostname_ip=$1; $client_username=$2; $client_http_useragent=$3; $timestamp_central=$4." ".$5; $server_hostname_ip=$6; $client_http_referer=$7; $client_http_method=$9; $client_http_uri=$10; $http_reply_code=$11;
-  $client_hostname_ip=$1; $client_username=$2; $client_http_useragent=$3; $timestamp_central=$4." ".$5; $server_hostname_ip=$6; $client_http_referer=$7; $client_http_method=$9; $client_http_host=$10; $client_http_uri=$11; $http_reply_code=$12;
+#elsif ( $output_escape =~ /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(?:\w+\:\/\/)?([^\/]*?)(\/.*?)?(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)/) {
+ elsif ( $output_escape =~ /^(?:\<\d+\>)?(\S+\s+\d+\s+\d+\:\d+\:\d+|\d+\-\d+\-\d+T\d+\:\d+\:\d+(?:\.\d+)?[\-\+]\d+\:\d+)?(?:\s(\S+)\s\S+\:\s+)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\t|\\t)+(\S+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(\d{4}\-\d{2}\-\d{2})(?:\t|\\t)+(\d{2}\:\d{2}\:\d{2})(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(.*?)(?:\t|\\t)+(.*?)(?:\t|\\t)+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+\d+(?:\t|\\t)+.*?(?:\t|\\t)+([0-9a-zA-Z\-\_]+)(?:\t|\\t)+(?:\w+\:\/\/)?([^\/]*?)(\/.*?)?(?:\t|\\t)+\S+(?:\t|\\t)+(\d+)/) {
+# $client_hostname_ip=$1; $client_username=$2; $client_http_useragent=$3; $timestamp_central=$4." ".$5; $server_hostname_ip=$6; $client_http_referer=$7; $client_http_method=$9; $client_http_host=$10; $client_http_uri=$11; $http_reply_code=$12;
+  $timestamp_central=$1; $server_hostname_ip=$2; $client_hostname_ip=$3; $client_username=$4; $client_http_useragent=$5; $timestamp_central=$6." ".$7; $server_hostname_ip=$8; $client_http_referer=$9; $client_http_method=$11; $client_http_host=$12; $client_http_uri=$13; $http_reply_code=$14;
   # https/ssl-tunnel:
-  #if( $11 eq "-" && $8 ne "-" )
+  #if( $13 eq "-" && $10 ne "-" )
   #{
-  # $client_http_uri=$8;
+  # $client_http_uri=$10;
   #}
+  unless( $1 ) { $timestamp_central=$6." ".$7 }
+  unless( $2 ) { $server_hostname_ip=$8 }
   print "passage dans TMG/ForeFront regexp.\n" if $debug2;
  }
 
