@@ -19,6 +19,8 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+# 19nov2017: new filter -y on cmd line for specific one or more years based on new ET metadata (thx)
+# 18nov2017: enhance http user-agent for reducing regex + add terminal color (not on syslog)
 # 13jul2016: added syslog header for TMG/ForeFront parser
 # 12jul2016: fix sending to syslog
 #  5nov2015: fix pcre http User-Agent
@@ -101,6 +103,8 @@ use Getopt::Long;
 use Sys::Hostname;
 my $host = hostname;
 
+use Term::ANSIColor;
+
 ####################################################################################################
 
 my $recieved_data;
@@ -135,10 +139,13 @@ my $syslogip="127.0.0.1";
 my $syslogport="514";
 my $syslogproto="udp";
 my $category='\S+';
+my $year1;
+my @year2;
 GetOptions ("f=s"      => \$file,    # string
             "d"        => \$debug,   # flag
             "s"        => \$syslog,  # flag
-            "c=s"      => \$category)# string
+            "c=s"      => \$category,# string
+            "y=s"      => \$year1)    # string
 or die("Error in command line arguments\n");
 
 if( $file )
@@ -159,6 +166,7 @@ else
  print "For enable optional syslog, add -s on command line\n";
  print "For enable optional debugging, add -d on command line\n";
  print "For enable optional category, add -c all|proxy|webserver on command line\n";
+ print "For enable optional one or more years, add -y 2017,2016 on command line\n";
  print "==================================================\n";
  exit;
 }
@@ -172,6 +180,19 @@ if( $syslog )
 
 $category = '(?:\$HTTP_SERVERS|\$HOME_NET)' if $category =~ /^webserver$/i;
 $category = '(?:\$EXTERNAL_NET|any|8\.8\.8\.8|209\.139\.208\.0\/23)' if $category =~ /^proxy$/i;
+
+if( $year1 && $year1 =~ /^(?:([12]0\d\d)\,?)+$/ && (@year2 = $year1 =~ /([12]0\d\d)\,?/g) )
+{
+ if( $debug )
+ {
+  print "cmd line year: $_\n" foreach( @year2);
+ }
+}
+elsif( $year1 )
+{
+ print "Error in command line arguments, one or more year are wrong: $year1\n";
+ exit;
+}
 
 ####################################################################################################
 
@@ -201,10 +222,12 @@ close CPUINFO;
  my $contentoptions1='\s*(fast_pattern)(?:\:only|\:\d+\,\d+)?\;|\s*(nocase)\;|\s*offset\:(\d+)\;|\s*depth\:(\d+)\;|\s*distance\:\s*\-?(\d+)\;|\s*within\:(\d+)\;|\s*http_raw_uri\;';
  my $negateuricontent1='\s*(?:uri)?content\:\!\"[^\"]*?\"\s*\;(?:\s*fast_pattern(?:\:only|\d+\,\d+)?\;|\s*nocase\;|\s*http_uri\;|\s*http_header\;|\s*http_cookie\;|\s*offset\:\d+\;|\s*depth\:\d+\;|\s*http_raw_uri\;|\s*distance\:\s*\-?\d+\;|\s*within\:\d+\;|\s*http_client_body\;)*';
  my $extracontentoptions='\s*threshold\:.*?\;|\s*flowbits\:.*?\;|\s*isdataat\:\d+(?:\,relative)?\;|\s*dsize\:[\<\>]*\d+\;|\s*detection_filter\:.*?\;|\s*priority\:\d+\;|\s*metadata\:.*?\;';
- my $referencesidrev='(?:\s*reference\:.*?\;\s*)*\s*classtype\:.*?\;\s*sid\:\d+\;\s*rev\:\d+\;\s*\)\s*';
+ #my $referencesidrev='(?:\s*reference\:.*?\;\s*)*\s*classtype\:.*?\;\s*sid\:\d+\;\s*rev\:\d+\;\s*\)\s*';
+ my $referencesidrev='(?:\s*reference\:.*?\;\s*)*\s*classtype\:.*?\;\s*sid\:\d+\;\s*rev\:\d+\;';
  my $pcreuri='\s*pcre\:\"\/(.*?)\/[smiUGDIR]*\"\;'; # not header/Cookie/Post_payload!
  my $pcreagent='\s*pcre\:\"\/(.*?)\/[smiH]*\"\;';
  my $pcrecookie='\s*pcre\:\"\/(.*?)\/[smiC]*\"\;';
+ my $createdat='\bcreated_at\s(\d\d\d\d)';
 
 foreach $_ ( @fileemergingthreats )
 {
@@ -244,7 +267,8 @@ foreach $_ ( @fileemergingthreats )
  }
 
  # begin http_uri
- elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$flowbits1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*(?:http_uri|http_raw_uri)\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreagent)?(?:$negateuricontent1)?(?:$extracontentoptions)?$referencesidrev$/ )
+# elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$flowbits1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*(?:http_uri|http_raw_uri)\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreagent)?(?:$negateuricontent1)?(?:$extracontentoptions)?$referencesidrev$/ )
+ elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$flowbits1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*(?:http_uri|http_raw_uri)\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreagent)?(?:$negateuricontent1)?(?:$extracontentoptions)?$referencesidrev[^\n]*$createdat/ )
  {
   my $http_method1=0;
   my $http_methodnocase1=0;
@@ -475,6 +499,7 @@ foreach $_ ( @fileemergingthreats )
   my $distance129=$200 if defined($200);
   #
   my $pcre_agent79=$201 if $201;	# old 141
+  my $metadatacreatedyear=$202 if $202;
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -816,6 +841,8 @@ foreach $_ ( @fileemergingthreats )
   my $abc1=0;
   my $httppcreagent=0;
   my $httpagentshort=0;
+  my $httpagentshort_depth=0;
+  my $httpagentshort_equal=0;
   my $httpreferer=0;
   my $httphost=0;
   my $pcrereferer=0;
@@ -1501,20 +1528,49 @@ foreach $_ ( @fileemergingthreats )
   if( $httpagentshort && $httppcreagent )
   {
    my $tempopcreagent = $httppcreagent;
+   my $tempopcreagent2;
+   while( $tempopcreagent && $tempopcreagent =~ /\\(?!$)x([a-f0-9]{2})?/g ) {
+    my $toto1=chr(hex($1)) if $1;
+    print "uaici1a: $toto1\n" if $debug1 && $toto1;
+    $tempopcreagent =~ s/\\(?!$)x([a-f0-9]{2})?/$toto1/ if $toto1;
+   }
    $tempopcreagent =~ s/\\(?!$)(?:x[a-f0-9]{2})?//g;
+   print "uaici1b: $httpagentshort\n" if $debug1;
+   print "uaici1c: $httppcreagent\n" if $debug1;
+   print "uaici1d: $tempopcreagent\n" if $debug1;
    if( $httpagentshort eq $tempopcreagent )
    {
-    print "tempopcreagent: $tempopcreagent\n" if $debug1;
+    print "tempopcreagent1: $tempopcreagent\n" if $debug1;
     undef $httppcreagent;
     undef $tempopcreagent;
    }
+   elsif( $tempopcreagent =~ /^\^(?!\-\$)([^\$]*?)\$/ && $httpagentshort eq $1 )
+   {
+    print "uaici1e: $1\n" if $debug1;
+    $httpagentshort_equal=length($tempopcreagent)-2;
+    undef $httppcreagent;
+    undef $tempopcreagent;
+    undef $tempopcreagent2;
+    print "uaici1f: $httpagentshort_equal\n" if $debug1;
+   }
+   elsif( $tempopcreagent =~ /^\^(.*)/ && $httpagentshort eq $1 )
+   {
+    print "uaici1g: $1\n" if $debug1;
+    $httpagentshort_depth = length($tempopcreagent)-1;
+    undef $httppcreagent;
+    undef $tempopcreagent;
+    undef $tempopcreagent2;
+    print "uaici1h: $httpagentshort_depth\n" if $debug1;
+   }
   }
 
+ if( !@year2 || grep(/$metadatacreatedyear/, @year2) )
+ {
   print "httpuricourt1: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong1: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
   print "tableaupcreuri1: $etmsg1, $abc1, $abc1_nocase\n" if $debug1 && $abc1;
   print "tableaupcreagent1: $etmsg1, $httppcreagent, $httppcreagent_nocase\n" if $debug1 && $httppcreagent;
-  print "httpagentshort1: $etmsg1, ".lc($httpagentshort)."\n" if $debug1 && $httpagentshort;
+  print "httpagentshort1: $etmsg1, ".lc($httpagentshort) if $debug1 && $httpagentshort; print ", depth=$httpagentshort_depth" if $debug1 && $httpagentshort_depth; print ", equal=$httpagentshort_equal" if $debug1 && $httpagentshort_equal; print "\n" if $debug1 && $httpagentshort;
   print "tableauhttpmethod1: $etmsg1, $http_method1, $http_methodnocase1\n" if $debug1 && $http_method1;
   print "httpreferer1: $etmsg1, ".lc($httpreferer)."\n" if $debug1 && $httpreferer;
   print "tableaupcrereferer1: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
@@ -1522,12 +1578,14 @@ foreach $_ ( @fileemergingthreats )
   print "httphost1: $etmsg1, ".lc($httphost)."\n" if $debug1 && $httphost;
   print "tableaupcrehost1: $etmsg1, $pcrehost\n" if $debug1 && $pcrehost;
   print "http_urilen1: $etmsg1, $http_urilen1\n" if $debug1 && $http_urilen1;
+  print "metadata_created_year1: $etmsg1, $metadatacreatedyear\n" if $debug1 && $metadatacreatedyear;
 
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth, $http_urioffset ] if $httpuricourt && $http_uridepth && $http_urioffset;
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth ] if $httpuricourt && $http_uridepth && !$http_urioffset;
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt && !$http_uridepth && !$http_urioffset;
-  #
-  $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
+  $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort), "" , $httpagentshort_equal ] if $httpagentshort && !$httpagentshort_depth && $httpagentshort_equal;
+  $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort), $httpagentshort_depth ] if $httpagentshort && $httpagentshort_depth && !$httpagentshort_equal;
+  $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort && !$httpagentshort_depth;
   $hash{$etmsg1}{httpmethod} = [ $http_method1, $http_methodnocase1 ] if $http_method1;
   $hash{$etmsg1}{httpreferer} = [ lc($httpreferer) ] if $httpreferer;
   $hash{$etmsg1}{pcrereferer} = [ $pcrereferer ] if $pcrereferer;
@@ -1538,12 +1596,14 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{httphost} = [ lc($httphost) ] if $httphost;
   $hash{$etmsg1}{pcrehost} = [ $pcrehost ] if $pcrehost;
   $hash{$etmsg1}{httpurilen} = [ $http_urilen1 ] if $http_urilen1;
+ }
 
   next;
  }
 
  # begin uricontent
- elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*(?:uri)?content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$pcreuri)?(?:$extracontentoptions)?$referencesidrev$/ )
+# elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*(?:uri)?content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$pcreuri)?(?:$extracontentoptions)?$referencesidrev$/ )
+ elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*uricontent\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:\s*(?:uri)?content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*)?(?:$negateuricontent1)?(?:$pcreuri)?(?:$extracontentoptions)?$referencesidrev[^\n]*$createdat/ )
  {
   my $http_method2=0;
   my $http_methodnocase2=0;
@@ -1551,7 +1611,7 @@ foreach $_ ( @fileemergingthreats )
   my $http_uridepth=0;
   #
   if( $debug1 ){
-   print "brut2: $_\n"; print "here2: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32," if $32; print " 33: $33," if $33; print " 34: $34," if $34; print " 35: $35," if $35; print " 36: $36," if $36; print " 37: $37," if $37; print " 38: $38," if $38; print " 39: $39," if $39; print " 40: $40," if $40; print " 41: $41," if $41; print " 42: $42," if $42; print " 43: $43," if $43; print " 44: $44," if $44; print " 45: $45," if $45; print " 46: $46" if $46; print "\n";
+   print "brut2: $_\n"; print "here2: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32," if $32; print " 33: $33," if $33; print " 34: $34," if $34; print " 35: $35," if $35; print " 36: $36," if $36; print " 37: $37," if $37; print " 38: $38," if $38; print " 39: $39," if $39; print " 40: $40," if $40; print " 41: $41," if $41; print " 42: $42," if $42; print " 43: $43," if $43; print " 44: $44," if $44; print " 45: $45," if $45; print " 46: $46," if $46; print " 47: $47" if $47; print "\n"; 
   }
   #
   my $etmsg1=$1;
@@ -1607,6 +1667,7 @@ foreach $_ ( @fileemergingthreats )
   # distance
   #
   my $pcre_uri20=$46 if $46;		# old 34
+  my $metadatacreatedyear=$47 if $47;
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -1953,6 +2014,8 @@ foreach $_ ( @fileemergingthreats )
   $httppcreagent =~ s/(?<!\x5C)\x7B/\x5C\x7B/g if $httppcreagent; # {
   $httppcreagent =~ s/(?<!\x5C)\x7D/\x5C\x7D/g if $httppcreagent; # }
 
+ if( !@year2 || grep(/$metadatacreatedyear/, @year2) )
+ {
   print "httpuricourt2: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong2: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
   print "tableaupcreuri2: $etmsg1, $abc1, $abc1_nocase\n" if $debug1 && $abc1;
@@ -1961,6 +2024,7 @@ foreach $_ ( @fileemergingthreats )
   print "tableauhttpmethod2: $etmsg1, $http_method2, $http_methodnocase2\n" if $debug1 && $http_method2;
   print "tableaupcrereferer2: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
   print "http_urilen2: $etmsg1, $http_urilen2\n" if $debug1 && $http_urilen2;
+  print "metadata_created_year2: $etmsg1, $metadatacreatedyear\n" if $debug1 && $metadatacreatedyear;
 
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth, $http_urioffset ] if $httpuricourt && $http_uridepth && $http_urioffset;
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth ] if $httpuricourt && $http_uridepth && !$http_urioffset;
@@ -1973,12 +2037,14 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{pcreagent} = [ $httppcreagent, $httppcreagent_nocase ] if $httppcreagent;
   $hash{$etmsg1}{httpurilong} = [ @tableauuri1 ] if @tableauuri1;
   $hash{$etmsg1}{httpurilen} = [ $http_urilen2 ] if $http_urilen2;
+ }
 
   next;
  }
 
  # begin http_uri followed by a http_header
- elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flowbits1)?(?:$flow1)?(?:$httpmethod)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:$extracontentoptions)?$referencesidrev$/ )
+# elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flowbits1)?(?:$flow1)?(?:$httpmethod)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:$extracontentoptions)?$referencesidrev$/ )
+ elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flowbits1)?(?:$flow1)?(?:$httpmethod)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*(?:\s*http_uri\;)?(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:$extracontentoptions)?$referencesidrev[^\n]*$createdat/ )
  {
   my $http_method3=0;
   my $http_methodnocase3=0;
@@ -1986,7 +2052,7 @@ foreach $_ ( @fileemergingthreats )
   my $http_uridepth=0;
   #
   if( $debug1 ){
-   print "brut3: $_\n"; print "here3: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32," if $32; print " 33: $33," if $33; print " 34: $34," if $34; print " 35: $35," if $35; print " 36: $36," if $36; print " 37: $37," if $37; print " 38: $38," if $38; print " 39: $39," if $39; print " 40: $40," if $40; print " 41: $41," if $41; print " 42: $42," if $42; print " 43: $43," if $43; print " 44: $44," if $44; print " 45: $45," if $45; print " 46: $46," if $46; print " 47: $47," if $47; print " 48: $48," if $48; print " 49: $49," if $49; print " 50: $50," if $50; print " 51: $51," if $51; print " 52: $52," if $52; print " 53: $53," if $53; print " 54: $54," if $54; print " 55: $55," if $55; print " 56: $56" if $56; print "\n";
+   print "brut3: $_\n"; print "here3: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32," if $32; print " 33: $33," if $33; print " 34: $34," if $34; print " 35: $35," if $35; print " 36: $36," if $36; print " 37: $37," if $37; print " 38: $38," if $38; print " 39: $39," if $39; print " 40: $40," if $40; print " 41: $41," if $41; print " 42: $42," if $42; print " 43: $43," if $43; print " 44: $44," if $44; print " 45: $45," if $45; print " 46: $46," if $46; print " 47: $47," if $47; print " 48: $48," if $48; print " 49: $49," if $49; print " 50: $50," if $50; print " 51: $51," if $51; print " 52: $52," if $52; print " 53: $53," if $53; print " 54: $54," if $54; print " 55: $55," if $55; print " 56: $56," if $56; print " 57: $57" if $57; print "\n";
   }
   #
   my $etmsg1=$1;
@@ -2051,6 +2117,7 @@ foreach $_ ( @fileemergingthreats )
   my $distance39=$55 if defined($55);
   #
   my $pcre_uri23=$56 if $56;			# old 40
+  my $metadatacreatedyear=$57 if $57;
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -2352,6 +2419,8 @@ foreach $_ ( @fileemergingthreats )
      $httppcreagent_nocase=$http_headerfast36   if $http_headerfast36;
      $httppcreagent_nocase=$http_headernocase29 if $http_headernocase29;
 
+ if( !@year2 || grep(/$metadatacreatedyear/, @year2) )
+ {
   print "httpuricourt3: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong3: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
   print "tableaupcreuri3: $etmsg1, $abc1, $abc1_nocase\n" if $debug1 && $abc1;
@@ -2359,6 +2428,7 @@ foreach $_ ( @fileemergingthreats )
   print "httpagentshort3: $etmsg1, ".lc($httpagentshort)."\n" if $debug1 && $httpagentshort;
   print "tableauhttpmethod3: $etmsg1, $http_method3, $http_methodnocase3\n" if $debug1 && $http_method3;
   print "tableaupcrereferer3: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
+  print "metadata_created_year3: $etmsg1, $metadatacreatedyear\n" if $debug1 && $metadatacreatedyear;
 
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth, $http_urioffset ] if $httpuricourt && $http_uridepth && $http_urioffset;
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth ] if $httpuricourt && $http_uridepth && !$http_urioffset;
@@ -2370,12 +2440,14 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{pcreuri} = [ $abc1, $abc1_nocase ] if $abc1;
   $hash{$etmsg1}{pcreagent} = [ $httppcreagent, $httppcreagent_nocase ] if $httppcreagent;
   $hash{$etmsg1}{httpurilong} = [ @tableauuri1 ] if @tableauuri1;
+ }
 
   next;
  }
 
  # begin http_header
- elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:$pcreagent)?(?:$extracontentoptions)?$referencesidrev$/ )
+# elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:$pcreagent)?(?:$extracontentoptions)?$referencesidrev$/ )
+ elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$urilen1)?(?:$httpmethod)?(?:$negateuricontent1)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_header\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)*\s*http_uri\;(?:$contentoptions1)*(?:$negateuricontent1)?)?(?:$pcreuri)?(?:$pcreagent)?(?:$extracontentoptions)?$referencesidrev[^\n]*$createdat/ )
  {
   my $http_method4=0;
   my $http_methodnocase4=0;
@@ -2383,7 +2455,7 @@ foreach $_ ( @fileemergingthreats )
   my $http_uridepth=0;
   #
   if( $debug1 ){
-   print "brut4: $_\n"; print "here4: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32," if $32; print " 33: $33," if $33; print " 34: $34," if $34; print " 35: $35," if $35; print " 36: $36," if $36; print " 37: $37," if $37; print " 38: $38," if $38; print " 39: $39," if $39; print " 40: $40," if $40; print " 41: $41," if $41; print " 42: $42," if $42; print " 43: $43," if $43; print " 44: $44," if $44; print " 45: $45," if $45; print " 46: $46," if $46; print " 47: $47," if $47; print " 48: $48," if $48; print " 49: $49," if $49; print " 50: $50," if $50; print " 51: $51," if $51; print " 52: $52," if $52; print " 53: $53," if $53; print " 54: $54," if $54; print " 55: $55," if $55; print " 56: $56," if $56; print " 57: $57," if $57; print " 58: $58," if $58; print " 59: $59," if $59; print " 60: $60," if $60; print " 61: $61," if $61; print " 62: $62," if $62; print " 63: $63," if $63; print " 64: $64," if $64; print " 65: $65," if $65; print " 66: $66," if $66; print " 67: $67," if $67; print " 68: $68," if $68; print " 69: $69," if $69; print " 70: $70," if $70; print " 71: $71," if $71; print " 72: $72," if $72; print " 73: $73," if $73; print " 74: $74," if $74; print " 75: $75," if $75; print " 76: $76," if $76; print " 77: $77," if $77; print " 78: $78," if $78; print " 79: $79," if $79; print " 80: $80," if $80; print " 81: $81," if $81; print " 82: $82," if $82; print " 83: $83," if $83; print " 84: $84" if $84; print "\n";
+   print "brut4: $_\n"; print "here4: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32," if $32; print " 33: $33," if $33; print " 34: $34," if $34; print " 35: $35," if $35; print " 36: $36," if $36; print " 37: $37," if $37; print " 38: $38," if $38; print " 39: $39," if $39; print " 40: $40," if $40; print " 41: $41," if $41; print " 42: $42," if $42; print " 43: $43," if $43; print " 44: $44," if $44; print " 45: $45," if $45; print " 46: $46," if $46; print " 47: $47," if $47; print " 48: $48," if $48; print " 49: $49," if $49; print " 50: $50," if $50; print " 51: $51," if $51; print " 52: $52," if $52; print " 53: $53," if $53; print " 54: $54," if $54; print " 55: $55," if $55; print " 56: $56," if $56; print " 57: $57," if $57; print " 58: $58," if $58; print " 59: $59," if $59; print " 60: $60," if $60; print " 61: $61," if $61; print " 62: $62," if $62; print " 63: $63," if $63; print " 64: $64," if $64; print " 65: $65," if $65; print " 66: $66," if $66; print " 67: $67," if $67; print " 68: $68," if $68; print " 69: $69," if $69; print " 70: $70," if $70; print " 71: $71," if $71; print " 72: $72," if $72; print " 73: $73," if $73; print " 74: $74," if $74; print " 75: $75," if $75; print " 76: $76," if $76; print " 77: $77," if $77; print " 78: $78," if $78; print " 79: $79," if $79; print " 80: $80," if $80; print " 81: $81," if $81; print " 82: $82," if $82; print " 83: $83," if $83; print " 84: $84," if $84; print " 85: $85" if $85; print "\n";
   }
   #
   my $etmsg1=$1;
@@ -2479,6 +2551,7 @@ foreach $_ ( @fileemergingthreats )
   my $pcre_uri33=$83 if $83;		# old 59
   #
   my $pcre_agent34=$84 if $84;		# old 60
+  my $metadatacreatedyear=$85 if $85;
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -2612,6 +2685,8 @@ foreach $_ ( @fileemergingthreats )
   my $abc1=0;
   my $httppcreagent=0;
   my $httpagentshort=0;
+  my $httpagentshort_depth=0;
+  my $httpagentshort_equal=0;
   my $httpreferer=0;
   my $httphost=0;
   my $pcrereferer=0;
@@ -2910,6 +2985,14 @@ foreach $_ ( @fileemergingthreats )
   {
    my $tempochr=chr(hex("$1"));
    $httpagentshort =~ s/\\x(..)/$tempochr/;
+  }
+  if( $httpagentshort =~ /^\^(?!\-\$)[^\$]*?\$/ )
+  {
+   $httpagentshort_equal=length($httpagentshort)-2;
+  }
+  elsif( $httpagentshort =~ /^\^(?!\-\$)/ )
+  {
+   $httpagentshort_depth=length($httpagentshort);
   }
   $httpagentshort =~ s/(?:\\(?!$)(?:x[a-f0-9]{2})?|\^|\$)//g;
 
@@ -3341,20 +3424,49 @@ foreach $_ ( @fileemergingthreats )
   if( $httpagentshort && $httppcreagent )
   {
    my $tempopcreagent = $httppcreagent;
+   my $tempopcreagent2;
+   while( $tempopcreagent && $tempopcreagent =~ /\\(?!$)x([a-f0-9]{2})?/g ) {
+    my $toto1=chr(hex($1)) if $1;
+    print "uaici4a: $toto1\n" if $debug1 && $toto1;
+    $tempopcreagent =~ s/\\(?!$)x([a-f0-9]{2})?/$toto1/ if $toto1;
+   }
    $tempopcreagent =~ s/\\(?!$)(?:x[a-f0-9]{2})?//g;
+   print "uaici4b: $httpagentshort\n" if $debug1;
+   print "uaici4c: $httppcreagent\n" if $debug1;
+   print "uaici4d: $tempopcreagent\n" if $debug1;
    if( $httpagentshort eq $tempopcreagent )
    {
-    print "tempopcreagent: $tempopcreagent\n" if $debug1;
+    print "tempopcreagent4: $tempopcreagent\n" if $debug1;
     undef $httppcreagent;
     undef $tempopcreagent;
    }
+   elsif( $tempopcreagent =~ /^\^(?!\-\$)([^\$]*?)\$/ && $httpagentshort eq $1 )
+   {
+    print "uaici4e: $1\n" if $debug1;
+    $httpagentshort_equal=length($tempopcreagent)-2;
+    undef $httppcreagent;
+    undef $tempopcreagent;
+    undef $tempopcreagent2;
+    print "uaici4f: $httpagentshort_equal\n" if $debug1;
+   }
+   elsif( $tempopcreagent =~ /^\^(.*)/ && $httpagentshort eq $1 )
+   {
+    print "uaici4g: $1\n" if $debug1;
+    $httpagentshort_depth = length($tempopcreagent)-1;
+    undef $httppcreagent;
+    undef $tempopcreagent;
+    undef $tempopcreagent2;
+    print "uaici4h: $httpagentshort_depth\n" if $debug1;
+   }
   }
 
+ if( !@year2 || grep(/$metadatacreatedyear/, @year2) )
+ {
   print "httpuricourt4: $etmsg1, ".lc($httpuricourt) if $debug1 && $httpuricourt; print ", depth: $http_uridepth" if $debug1 && $httpuricourt && $http_uridepth; print ", offset: $http_urioffset" if $debug1 && $httpuricourt && $http_urioffset; print "\n" if $debug1 && $httpuricourt;
   print "httpurilong4: $etmsg1, @tableauuri1\n" if $debug1 && @tableauuri1;
   print "tableaupcreuri4: $etmsg1, $abc1, $abc1_nocase\n" if $debug1 && $abc1;
   print "tableaupcreagent4: $etmsg1, $httppcreagent, $httppcreagent_nocase\n" if $debug1 && $httppcreagent;
-  print "httpagentshort4: $etmsg1, ".lc($httpagentshort)."\n" if $debug1 && $httpagentshort;
+  print "httpagentshort4: $etmsg1, ".lc($httpagentshort) if $debug1 && $httpagentshort; print ", depth=$httpagentshort_depth" if $debug1 && $httpagentshort_depth; print ", equal=$httpagentshort_equal" if $debug1 && $httpagentshort_equal; print "\n" if $debug1 && $httpagentshort;
   print "tableauhttpmethod4: $etmsg1, $http_method4, $http_methodnocase4\n" if $debug1 && $http_method4;
   print "httpreferer4: $etmsg1, ".lc($httpreferer)."\n" if $debug1 && $httpreferer;
   print "tableaupcrereferer4: $etmsg1, $pcrereferer\n" if $debug1 && $pcrereferer;
@@ -3363,12 +3475,14 @@ foreach $_ ( @fileemergingthreats )
   print "httphost4: $etmsg1, ".lc($httphost)."\n" if $debug1 && $httphost;
   print "tableaupcrehost4: $etmsg1, $pcrehost\n" if $debug1 && $pcrehost;
   print "http_urilen4: $etmsg1, $http_urilen4\n" if $debug1 && $http_urilen4;
+  print "metadata_created_year4: $etmsg1, $metadatacreatedyear\n" if $debug1 && $metadatacreatedyear;
 
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth, $http_urioffset ] if $httpuricourt && $http_uridepth && $http_urioffset;
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt), $http_uridepth ] if $httpuricourt && $http_uridepth && !$http_urioffset;
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt && !$http_uridepth && !$http_urioffset;
-  #
-  $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort;
+  $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort), "" , $httpagentshort_equal ] if $httpagentshort && !$httpagentshort_depth && $httpagentshort_equal;
+  $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort), $httpagentshort_depth ] if $httpagentshort && $httpagentshort_depth && !$httpagentshort_equal;
+  $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort && !$httpagentshort_depth && !$httpagentshort_equal;
   $hash{$etmsg1}{httpmethod} = [ $http_method4, $http_methodnocase4 ] if $http_method4;
   $hash{$etmsg1}{httpreferer} = [ lc($httpreferer) ] if $httpreferer;
   $hash{$etmsg1}{pcrereferer} = [ $pcrereferer ] if $pcrereferer;
@@ -3380,19 +3494,21 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{httphost} = [ lc($httphost) ] if $httphost;
   $hash{$etmsg1}{pcrehost} = [ $pcrehost ] if $pcrehost;
   $hash{$etmsg1}{httpurilen} = [ $http_urilen4 ] if $http_urilen4;
+ }
 
   next;
  }
 
 
  # begin http_uri followed by http_cookie
- elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$httpmethod)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)?\s*http_uri\;(?:$contentoptions1)?(?:$negateuricontent1)?)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)?\s*http_cookie\;(?:$contentoptions1)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:$pcreuri)?(?:$pcrecookie)?(?:$extracontentoptions)?$referencesidrev$/ )
+# elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$httpmethod)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)?\s*http_uri\;(?:$contentoptions1)?(?:$negateuricontent1)?)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)?\s*http_cookie\;(?:$contentoptions1)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:$pcreuri)?(?:$pcrecookie)?(?:$extracontentoptions)?$referencesidrev$/ )
+ elsif( $_=~ /^\s*alert\s+(?:udp|tcp)\s+\S+\s+\S+\s+\-\>\s+$category\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;\s*(?:$flow1)?(?:$httpmethod)?(?:\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)?\s*http_uri\;(?:$contentoptions1)?(?:$negateuricontent1)?)?\s*content\:\s*\"([^\"]*?)\"\s*\;(?:$contentoptions1)?\s*http_cookie\;(?:$contentoptions1)?(?:$negateuricontent1)?(?:$extracontentoptions)?(?:$pcreuri)?(?:$pcrecookie)?(?:$extracontentoptions)?$referencesidrev[^\n]*$createdat/ )
  {
   my $http_method5=0;
   my $http_methodnocase5=0;
   #
   if( $debug1 ){
-   print "brut5: $_\n"; print "here5: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31" if $31; print "\n";
+   print "brut5: $_\n"; print "here5: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3," if $3; print " 4: $4," if $4; print " 5: $5," if $5; print " 6: $6," if $6; print " 7: $7," if $7; print " 8: $8," if $8; print " 9: $9," if $9; print " 10: $10," if $10; print " 11: $11," if $11; print " 12: $12," if $12; print " 13: $13," if $13; print " 14: $14," if $14; print " 15: $15," if $15; print " 16: $16," if $16; print " 17: $17," if $17; print " 18: $18," if $18; print " 19: $19," if $19; print " 20: $20," if $20; print " 21: $21," if $21; print " 22: $22," if $22; print " 23: $23," if $23; print " 24: $24," if $24; print " 25: $25," if $25; print " 26: $26," if $26; print " 27: $27," if $27; print " 28: $28," if $28; print " 29: $29," if $29; print " 30: $30," if $30; print " 31: $31," if $31; print " 32: $32" if $32; print "\n";
   }
   #
   my $etmsg1=$1;
@@ -3431,6 +3547,7 @@ foreach $_ ( @fileemergingthreats )
   my $pcre_uri13=$30 if $30;		# old 22
   #
   my $cookiepcre=$31 if $31;		# old 23
+  my $metadatacreatedyear=$32 if $32;
 
   # check what is http_uri best length ?
   my $httpuricourt=0;
@@ -3542,17 +3659,21 @@ foreach $_ ( @fileemergingthreats )
      $http_cookie_nocase=$http_cookienocase12 if $http_cookienocase12;
      $http_cookie_nocase=$http_cookienocase15 if $http_cookienocase15;
 
+ if( !@year2 || grep(/$metadatacreatedyear/, @year2) )
+ {
   print "httpuricourt5: $etmsg1, ".lc($httpuricourt)."\n" if $debug1 && $httpuricourt;
   print "tableaupcreuri5: $etmsg1, $abc1, $abc1_nocase\n" if $debug1 && $abc1;
   print "tableauhttpmethod5: $etmsg1, $http_method5, $http_methodnocase5\n" if $debug1 && $http_method5;
   print "tableauhttpcookie5: $etmsg1, $http_cookie, $http_cookie_nocase\n" if $debug1 && $http_cookie;
   print "tableaupcrecookie5: $etmsg1, $cookiepcre, $http_cookie_nocase\n" if $debug1 && $cookiepcre;
+  print "metadata_created_year5: $etmsg1, $metadatacreatedyear\n" if $debug1 && $metadatacreatedyear;
 
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt;
   $hash{$etmsg1}{pcreuri} = [ $abc1, $abc1_nocase ] if $abc1;
   $hash{$etmsg1}{httpmethod} = [ $http_method5, $http_methodnocase5 ] if $http_method5;
   $hash{$etmsg1}{httpcookie} = [ $http_cookie, $http_cookie_nocase ] if $http_cookie;
   $hash{$etmsg1}{pcrecookie} = [ $cookiepcre, $http_cookie_nocase ] if $cookiepcre;
+ }
 
   $http_cookie=0 if $http_cookie;
   $cookiepcre=0 if $cookiepcre;
@@ -3561,16 +3682,25 @@ foreach $_ ( @fileemergingthreats )
  }
 
 #alert ip any any -> 103.13.232.232 any (msg:"Shadowserver C&C List: 103.13.232.232"; reference:url,rules.emergingthreats.net/fwrules/emerging-Block-IPs.txt; classtype:misc-activity; sid:9990001; rev:1;)
- elsif( $_=~ /^\s*alert\s+ip\s+\S+\s+\S+\s+\-\>\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;[^\n]*?$referencesidrev$/ )
+ #elsif( $_=~ /^\s*alert\s+ip\s+\S+\s+\S+\s+\-\>\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;[^\n]*?$referencesidrev/ )
+ elsif( $_=~ /^\s*alert\s+ip\s+\S+\s+\S+\s+\-\>\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)\s+\S+\s+\(\s*msg\:\s*\"([^\"]*?)\"\s*\;[^\n]*?$referencesidrev(?:[^\n]*$createdat)?/ )
  {
-  print "brut6: $_\n" if $debug1;
+  if( $debug1 ){
+   print "brut6: $_\n"; print "here6: 1: $1," if $1; print " 2: $2," if $2; print " 3: $3" if $3; print "\n";
+  }
   #
   my $etmsg1=$2;
   my $remote_ip=$1;
+  my $metadatacreatedyear=$3 if $3;
   #
+ if( !@year2 || ($metadatacreatedyear && grep(/$metadatacreatedyear/, @year2)) )
+ {
   print "remoteip6: $etmsg1, $remote_ip\n" if $debug1 && $remote_ip;
+  print "metadata_created_year6: $etmsg1, $metadatacreatedyear\n" if $debug1 && $metadatacreatedyear;
 
   $hash{$etmsg1}{remoteip} = [ $remote_ip ] if $remote_ip;
+  $hash{$etmsg1}{ametadatacreatedyear} = [ $metadatacreatedyear ] if $metadatacreatedyear;
+ }
 
   $remote_ip=0 if $remote_ip;
 
@@ -4049,14 +4179,26 @@ my @threads = map threads->create(sub {
 
     elsif( $clef eq "httpagentshort" && !$jump )
     {
-     if( $hash{$etmsg}{"httpagentshort"}[0] && $client_http_useragent && index(lc($client_http_useragent), $hash{$etmsg}{"httpagentshort"}[0]) != -1 )
+     # equal:
+     if( $hash{$etmsg}{"httpagentshort"}[0] && !$hash{$etmsg}{"httpagentshort"}[1] && $hash{$etmsg}{"httpagentshort"}[2] && $client_http_useragent && (lc($client_http_useragent) eq (lc($hash{$etmsg}{"httpagentshort"}[0]))) )
      {
-      print "ici4: ",$hash{$etmsg}{"httpagentshort"}[0],"\n" if $debug2 && $hash{$etmsg}{"httpagentshort"}[0];
+      print "fp_ici4a: ",$hash{$etmsg}{"httpagentshort"}[0],", , ",$hash{$etmsg}{"httpagentshort"}[2],"\n" if $debug2 && $hash{$etmsg}{"httpagentshort"}[0] && $hash{$etmsg}{"httpagentshort"}[2];
+      $foundagent=1;
+     }
+     # depth:
+     elsif( $hash{$etmsg}{"httpagentshort"}[0] && $hash{$etmsg}{"httpagentshort"}[1] && !$hash{$etmsg}{"httpagentshort"}[2] && $client_http_useragent && index(lc($client_http_useragent), $hash{$etmsg}{"httpagentshort"}[0]) == 0 )
+     {
+      print "fp_ici4b: ",$hash{$etmsg}{"httpagentshort"}[0],", ",$hash{$etmsg}{"httpagentshort"}[1],"\n" if $debug2 && $hash{$etmsg}{"httpagentshort"}[0] && $hash{$etmsg}{"httpagentshort"}[1];
+      $foundagent=1;
+     }
+     elsif( $hash{$etmsg}{"httpagentshort"}[0] && !$hash{$etmsg}{"httpagentshort"}[1] && !$hash{$etmsg}{"httpagentshort"}[2] && $client_http_useragent && index(lc($client_http_useragent), $hash{$etmsg}{"httpagentshort"}[0]) != -1 )
+     {
+      print "fp_ici4c: ",$hash{$etmsg}{"httpagentshort"}[0],"\n" if $debug2 && $hash{$etmsg}{"httpagentshort"}[0];
       $foundagent=1;
      }
      elsif( $hash{$etmsg}{"httpagentshort"}[0] )
      {
-      print "agent not found: jump (",$hash{$etmsg}{"httpagentshort"}[0],")\n" if $debug2;
+      print "fp_agent not found: jump (",$hash{$etmsg}{"httpagentshort"}[0],")\n" if $debug2;
       $jump=1;
       last;
      }
@@ -4362,8 +4504,8 @@ my @threads = map threads->create(sub {
     elsif( $foundmethod or $founduricourt1 or $foundurilong1 or $foundurilen or $foundurilongdistance1 or $foundagent or $foundreferer or $foundcookie or $foundpcrereferer or $foundpcreagent or $foundpcrecookie or $foundpcreuri or $foundremoteip or $foundhost or $foundpcrehost)
     {
      lock($queue);
-     print "ok trouvé: ";
-     print "timestamp: $timestamp_central, " if $timestamp_central;
+     print color("red"), "ok trouvé: ", color("reset");
+     print color("blue"), "timestamp: $timestamp_central, " if $timestamp_central;
      print "server_hostname_ip: $server_hostname_ip, " if $server_hostname_ip;
      print "client_hostname_ip: $client_hostname_ip, " if $client_hostname_ip;
      print "client_username: $client_username, " if $client_username;
@@ -4373,9 +4515,9 @@ my @threads = map threads->create(sub {
      print "client_http_referer: $client_http_referer, " if $client_http_referer;
      print "client_http_cookie: $client_http_cookie, " if $client_http_cookie;
      print "client_http_host: $client_http_host, " if $client_http_host;
-     print "http_reply_code: $http_reply_code, " if $http_reply_code;
+     print color("reset"), "http_reply_code: $http_reply_code, ", color("blue") if $http_reply_code;
      print "server_remote_ip: $server_remote_ip, " if $server_remote_ip;
-     print "etmsg: $etmsg" if $etmsg;
+     print color("reset"), color("green"), "etmsg: $etmsg" if $etmsg;
      print ", etmethod: ",$hash{$etmsg}{"httpmethod"}[0] if $foundmethod;
      print ", eturishort: ",$hash{$etmsg}{"httpuricourt"}[0] if $founduricourt1; print " depth:",$hash{$etmsg}{"httpuricourt"}[1] if $founduricourt1 && $hash{$etmsg}{"httpuricourt"}[1]; print " offset:",$hash{$etmsg}{"httpuricourt"}[2] if $founduricourt1 && $hash{$etmsg}{"httpuricourt"}[2];
      print ", eturilong: ",$hash{$etmsg}{"httpurilong"}[0] if $foundurilong1;
@@ -4391,7 +4533,7 @@ my @threads = map threads->create(sub {
      print ", ethost: ",$hash{$etmsg}{"httphost"}[0] if $foundhost;
      print ", etpcrehost: ",$hash{$etmsg}{"pcrehost"}[0] if $foundpcrehost;
      print ", eturilen: ",$hash{$etmsg}{"httpurilen"}[0] if $foundurilen;
-     print "\n";
+     print color("reset"), "\n";
     }
    }
   }
