@@ -19,6 +19,7 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+# 21nov2017: fix bug on syslog option: add return
 # 19nov2017: new filter -y on cmd line for specific one or more years based on new ET metadata (thx)
 # 18nov2017: enhance http user-agent for reducing regex + add terminal color (not on syslog)
 # 13jul2016: added syslog header for TMG/ForeFront parser
@@ -4497,6 +4498,7 @@ my @threads = map threads->create(sub {
      $tutu=$hash{$etmsg}{"pcrehost"}[0];
      #print $syslogsock ", etpcrehost: $tutu" if $foundpcrehost;
      $sendtosyslog .= ", etpcrehost: $tutu" if $foundpcrehost;
+     $sendtosyslog .= "\n" if $syslogsock;
 
      print $syslogsock $sendtosyslog if $syslogsock;
      #print $syslogsock "\n";
