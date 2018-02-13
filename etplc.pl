@@ -19,6 +19,7 @@
 # Todo: remove $tutu ;)
 
 # changelog:
+# 13fev2018: fix bug on new useragent position
 # 22nov2017: fix bug on new flowbits position
 # 21nov2017: fix bug on syslog option: add return
 # 19nov2017: new filter -y on cmd line for specific one or more years based on new ET metadata (thx)
@@ -1587,7 +1588,7 @@ foreach $_ ( @fileemergingthreats )
   $hash{$etmsg1}{httpuricourt} = [ lc($httpuricourt) ] if $httpuricourt && !$http_uridepth && !$http_urioffset;
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort), "" , $httpagentshort_equal ] if $httpagentshort && !$httpagentshort_depth && $httpagentshort_equal;
   $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort), $httpagentshort_depth ] if $httpagentshort && $httpagentshort_depth && !$httpagentshort_equal;
-  $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort && !$httpagentshort_depth;
+  $hash{$etmsg1}{httpagentshort} = [ lc($httpagentshort) ] if $httpagentshort && !$httpagentshort_depth && !$httpagentshort_equal;
   $hash{$etmsg1}{httpmethod} = [ $http_method1, $http_methodnocase1 ] if $http_method1;
   $hash{$etmsg1}{httpreferer} = [ lc($httpreferer) ] if $httpreferer;
   $hash{$etmsg1}{pcrereferer} = [ $pcrereferer ] if $pcrereferer;
